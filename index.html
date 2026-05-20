@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Saber Showdown Mobile Pro</title>
+    <title>Saber Showdown Cyber-White Edition</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #020208; user-select: none; -webkit-user-select: none; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #010105; user-select: none; -webkit-user-select: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
         
         /* Интерфейс статусов */
@@ -72,8 +72,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x020208);
-        scene.fog = new THREE.FogExp2(0x020208, 0.03);
+        scene.background = new THREE.Color(0x0a0a20);
+        scene.fog = new THREE.FogExp2(0x0a0a20, 0.02);
 
         // --- СИСТЕМА СВАЙП-КАМЕРЫ ЧЕРЕЗ СФЕРИЧЕСКИЕ КООРДИНАТЫ ---
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -83,7 +83,7 @@
         
         let camAngleY = 0; // Вращение влево/вправо
         let camAngleX = 0.4; // Вращение вверх/вниз
-        camera.position.set(0, 4.5, 10);
+        camera.position.set(0, 5.0, 10);
         camera.lookAt(0, 1.2, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -92,13 +92,13 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        // --- НОВОЕ НЕОНОВОЕ ОСВЕЩЕНИЕ КИБЕРПАНКА ---
+        // --- НОВОЕ ОБНОВЛЕННОЕ НЕОНОВОЕ ОСВЕЩЕНИЕ КИБЕРПАНКА ---
         // Полусферический свет дает красивый градиент синего и фиолетового на персонажах
-        const hemiLight = new THREE.HemisphereLight(0x4d4dff, 0x2b0040, 0.9);
+        const hemiLight = new THREE.HemisphereLight(0x4d4dff, 0x2b0040, 1.0);
         scene.add(hemiLight);
         
         // Мощный направленный свет для четких теней
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
         dirLight.position.set(15, 25, 10);
         dirLight.castShadow = true;
         dirLight.shadow.mapSize.width = 1024;
@@ -106,17 +106,22 @@
         dirLight.shadow.bias = -0.001;
         scene.add(dirLight);
 
-        // Пол (Металлическая арена)
-        const floor = new THREE.Mesh(
-            new THREE.PlaneGeometry(100, 100), 
-            new THREE.MeshStandardMaterial({ color: 0x0a0a10, roughness: 0.4, metalness: 0.6 })
-        );
+        // --- ПОЛ (НЕОНОВАЯ БЕЛАЯ АРЕНА) ---
+        // По твоему запросу земля теперь чистая неоново-белая и слегка отражает свет
+        const floorGeo = new THREE.PlaneGeometry(100, 100);
+        const floorMat = new THREE.MeshStandardMaterial({ 
+            color: 0xffffff, // ЧИСТО БЕЛЫЙ ЦВЕТ
+            roughness: 0.1, // ОЧЕНЬ ГЛАДКИЙ (для отражений)
+            metalness: 0.2, // Металл придает "киберпанк" блеск
+            side: THREE.DoubleSide
+        });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         scene.add(floor);
         scene.add(new THREE.GridHelper(100, 50, 0x00ffcc, 0x220033));
 
-        // --- СОЗДАНИЕ НАСТОЯЩЕГО ROBLOX-НУБИКА С КРАСИВЫМ ХВАТОМ ---
+        // --- СОЗДАНИЕ НАСТОЯЩЕГО ROBLOX-НУБИКА С КРАСИВЫМ ХВАТОМ В РУКЕ ---
         function createRobloxCharacter(shirtColor, pantsColor, saberColor) {
             const group = new THREE.Group();
             
@@ -134,19 +139,19 @@
             // Голова
             const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), skinMat);
             head.position.y = 1.85;
-            head.castShadow = true;
+            head.castShadow = head.receiveShadow = true;
             group.add(head);
 
-            // Руки
+            // Шарниры рук
             const rArmPivot = new THREE.Group(); rArmPivot.position.set(0.55, 1.5, 0);
-            const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), skinMat); rArm.position.y = -0.45; rArm.castShadow = true;
+            const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), shirtMat); rArm.position.y = -0.45; rArm.castShadow = true;
             rArmPivot.add(rArm); group.add(rArmPivot);
 
             const lArmPivot = new THREE.Group(); lArmPivot.position.set(-0.55, 1.5, 0);
             const lArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), shirtMat); lArm.position.y = -0.45; lArm.castShadow = true;
             lArmPivot.add(lArm); group.add(lArmPivot);
 
-            // Ноги (Штаны)
+            // Шарниры ног (Штаны)
             const rLegPivot = new THREE.Group(); rLegPivot.position.set(0.2, 0.6, 0);
             const rLeg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.28), pantsMat); rLeg.position.y = -0.35; rLeg.castShadow = true;
             rLegPivot.add(rLeg); group.add(rLegPivot);
@@ -155,30 +160,35 @@
             const lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.28), pantsMat); lLeg.position.y = -0.35; lLeg.castShadow = true;
             lLegPivot.add(lLeg); group.add(lLegPivot);
 
-            // --- КРЕПЛЕНИЕ МЕЧА ПРЯМО В КИСТЬ РУКИ ---
-            const saberContainer = new THREE.Group();
-            saberContainer.position.set(0, -0.9, 0.05); // Смещаем в самый низ руки (в ладонь)
-            saberContainer.rotation.x = -Math.PI / 2; // Разворачиваем клинок вперед от кулака
+            // --- МЕЧ В РУКЕ (Правильное крепление) ---
+            const handGripGroup = new THREE.Group();
+            handGripGroup.position.set(0, -1.0, 0.1); // Смещаем именно в кисть руки (внизу предплечья)
+            handGripGroup.rotation.x = -Math.PI / 2.2; // Разворачиваем клинок вперед от тела
 
-            // Рукоятка
-            const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0x555555, metalness: 0.8 }));
-            handle.rotation.x = Math.PI / 2;
-            saberContainer.add(handle);
+            // Рукоятка меча
+            const handleGeo = new THREE.CylinderGeometry(0.045, 0.045, 0.35, 8);
+            const handleMat = new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.8 });
+            const handle = new THREE.Mesh(handleGeo, handleMat);
+            handle.rotation.x = Math.PI / 2; // Hilt main visual forwardish
+            handle.castShadow = true;
+            handGripGroup.add(handle);
 
-            // Светящийся клинок (Лазер)
-            const bladeGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.5, 8);
+            // Неоновое лезвие
+            const bladeGeo = new THREE.CylinderGeometry(0.035, 0.035, 1.45, 8);
             const bladeMat = new THREE.MeshBasicMaterial({ color: saberColor });
             const blade = new THREE.Mesh(bladeGeo, bladeMat);
-            blade.position.z = 0.75; // Выдвигаем лезвие вперед из рукоятки
+            blade.position.z = 0.9; // Смещение вперед относительно рукоятки
             blade.rotation.x = Math.PI / 2;
-            saberContainer.add(blade);
+            blade.castShadow = true;
+            handGripGroup.add(blade);
 
-            // Подсветка от клинка на тело
-            const light = new THREE.PointLight(saberColor, 1.5, 5);
-            light.position.z = 0.5;
-            saberContainer.add(light);
+            // Динамический свет от лезвия
+            const light = new THREE.PointLight(saberColor, 1.3, 5);
+            light.position.z = 0.6;
+            light.castShadow = true;
+            handGripGroup.add(light);
 
-            rArmPivot.add(saberContainer);
+            rArmPivot.add(handGripGroup); // Привязываем всю группу меча к кисти правой руки
 
             group.userData = { head, rArmPivot, lArmPivot, rLegPivot, lLegPivot, blade, saberColor };
             return group;
@@ -192,7 +202,7 @@
         scene.add(player);
         scene.add(enemy);
 
-        // --- НАСТРОЙКА СВАЙПОВ НА ЭКРАНЕ ТЕЛЕФОНА ---
+        // --- НАСТРОЙКА СВАЙПОВ НА ЭКРАНЕ ТЕЛЕФОНА (Ручная камера) ---
         let isDragging = false;
         let prevTouchX = 0, prevTouchY = 0;
 
@@ -210,7 +220,7 @@
             const deltaX = e.touches[0].clientX - prevTouchX;
             const deltaY = e.touches[0].clientY - prevTouchY;
 
-            camAngleY -= deltaX * 0.007; // Чувствительность влево-вправо
+            camAngleY -= deltaX * 0.006; // Чувствительность влево-вправо
             camAngleX = THREE.MathUtils.clamp(camAngleX - deltaY * 0.005, 0.1, 1.1); // Ограничение вверх-вниз
 
             prevTouchX = e.touches[0].clientX;
@@ -298,13 +308,14 @@
                 state.player.isMoving = false;
             }
 
+            // Бойцы всегда смотрят друг на друга (для боевой механики)
             player.lookAt(enemy.position.x, player.position.y, enemy.position.z);
             enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
 
             // ПЛАВНОЕ ДВИЖЕНИЕ СВАЙП-КАМЕРЫ ЗА ИГРОКОМ
-            cameraPivot.position.lerp(player.position, 0.1);
+            cameraPivot.position.lerp(player.position, 0.12); // Плавно следуем за игроком
             cameraPivot.rotation.y = THREE.MathUtils.lerp(cameraPivot.rotation.y, camAngleY, 0.12);
-            cameraPivot.rotation.x = THREE.MathUtils.lerp(cameraPivot.rotation.x, camAngleX, 0.12);
+            cameraPivot.rotation.x = THREE.MathUtils.lerp(cameraPivot.rotation.x, camAngleX, 0.1);
 
             // ИИ БОТА
             const dist = player.position.distanceTo(enemy.position);
@@ -417,7 +428,7 @@
 
         function createClashEffect(p1, p2, color) {
             const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5); mid.y = 1.2;
-            const flash = new THREE.PointLight(color, 5, 4); flash.position.copy(mid);
+            const flash = new THREE.PointLight(color, 5, 4); flash.position.copy(mid); flash.castShadow = true;
             scene.add(flash); setTimeout(() => scene.remove(flash), 100);
         }
 
