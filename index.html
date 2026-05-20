@@ -18,7 +18,7 @@
         #enemy-hp { background: #ff0055; }
         .stamina-fill { background: #ffaa00; }
         
-        #stun-alert { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); color: #ff0055; font-size: 24px; font-weight: bold; display: none; text-shadow: 0 0 10px #ff0000; pointer-events: none; z-index: 11;}
+        #stun-alert { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); color: #ff0055; font-size: 24px; font-weight: bold; display: none; text-shadow: 0 0 10px #ff0000; pointer-events: none; z-index: 11;}
 
         /* Touch Controls Container */
         .controls-container { position: absolute; bottom: 30px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 40px; box-sizing: border-box; pointer-events: none; z-index: 10; display: none; align-items: flex-end; }
@@ -53,8 +53,8 @@
 
         #matchmaking-status { font-size: 16px; color: #555; margin-top: 15px; font-weight: 600; min-height: 22px; text-align: center; padding: 0 20px; }
         
-        /* Инструкция вращения сверху */
-        #cam-hint { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); text-align: center; color: rgba(0,0,0,0.5); font-size: 13px; font-weight: 600; pointer-events: none; z-index: 5; display: none; }
+        /* English Camera Hint */
+        #cam-hint { position: absolute; top: 90px; left: 50%; transform: translateX(-50%); text-align: center; color: rgba(0,0,0,0.5); font-size: 13px; font-weight: 600; pointer-events: none; z-index: 5; display: none; line-height: 1.4; }
     </style>
 </head>
 <body>
@@ -91,7 +91,7 @@
         </div>
     </div>
 
-    <div id="cam-hint">📱 Проведи пальцем вверху экрана,<br>чтобы вращать обзор вокруг головы</div>
+    <div id="cam-hint">📱 Slide your finger on the screen<br>to rotate the camera view</div>
     <div id="stun-alert">💥 STUNNED! STAMINA 0!</div>
 
     <div class="controls-container" id="controls">
@@ -194,7 +194,6 @@
         enemy.position.set(0, 0, -3);
         scene.add(player, enemy);
 
-        // Углы вращения свободной камеры вокруг игрока
         let cameraAngleX = 0; 
         let cameraAngleY = 0.3; 
 
@@ -205,121 +204,131 @@
             joyY: 0
         };
 
-        // --- ДИНАМИЧЕСКИЙ СВОБОДНЫЙ ОБЗОР (СВАЙПЫ ПО ЭКРАНУ) ---
-        let isPanning = false;
+        // --- УЛУЧШЕННАЯ СИСТЕМА МУЛЬТИТАЧА (ДВИЖЕНИЕ + КАМЕРА ОДНОВРЕМЕННО) ---
+        let joyTouchId = null;
+        let camTouchId = null;
         let prevTouchX = 0;
         let prevTouchY = 0;
+        let joyCenterX = 0;
+        let joyCenterY = 0;
+        const maxRadius = 45;
 
-        window.addEventListener('touchstart', (e) => {
-            const touch = e.touches[0];
-            // Игнорируем зону джойстика и кнопок действий
-            if (touch.clientX < window.innerWidth * 0.4 && touch.clientY > window.innerHeight * 0.5) return;
-            if (touch.clientX > window.innerWidth * 0.6 && touch.clientY > window.innerHeight * 0.5) return;
-            
-            isPanning = true;
-            prevTouchX = touch.clientX;
-            prevTouchY = touch.clientY;
-        }, { passive: true });
-
-        window.addEventListener('touchmove', (e) => {
-            if (!isPanning || !isGameRunning) return;
-            const touch = e.touches[0];
-            const movementX = touch.clientX - prevTouchX;
-            const movementY = touch.clientY - prevTouchY;
-
-            cameraAngleX -= movementX * 0.007; 
-            cameraAngleY = Math.max(0.05, Math.min(Math.PI / 2.5, cameraAngleY + movementY * 0.005));
-
-            prevTouchX = touch.clientX;
-            prevTouchY = touch.clientY;
-        }, { passive: true });
-
-        window.addEventListener('touchend', () => { isPanning = false; });
-
-        // Поддержка мышки для тестов на ПК
-        window.addEventListener('mousedown', (e) => {
-            if (e.clientX < window.innerWidth * 0.4 && e.clientY > window.innerHeight * 0.5) return;
-            isPanning = true; prevTouchX = e.clientX; prevTouchY = e.clientY;
-        });
-        window.addEventListener('mousemove', (e) => {
-            if (!isPanning || !isGameRunning) return;
-            cameraAngleX -= (e.clientX - prevTouchX) * 0.005;
-            cameraAngleY = Math.max(0.05, Math.min(Math.PI / 2.5, cameraAngleY + (e.clientY - prevTouchY) * 0.004));
-            prevTouchX = e.clientX; prevTouchY = e.clientY;
-        });
-        window.addEventListener('mouseup', () => { isPanning = false; });
-
-
-        // --- ОБРАБОТКА ДЖОЙСТИКА ---
         const joyZone = document.getElementById('joy-zone');
         const joyBase = document.getElementById('joy-base');
         const joyStick = document.getElementById('joy-stick');
-        
-        let joyActive = false;
-        let joyTouchId = null;
-        let joyCenterX = 0;
-        let joyCenterY = 0;
-        const maxRadius = 45; 
 
-        function handleJoystickStart(clientX, clientY, touchId = null) {
-            if (!isGameRunning) return;
-            joyActive = true;
-            joyTouchId = touchId;
-            const rect = joyBase.getBoundingClientRect();
-            joyCenterX = rect.left + rect.width / 2;
-            joyCenterY = rect.top + rect.height / 2;
-        }
+        window.addEventListener('touchstart', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                
+                // Проверяем, попал ли тач в зону джойстика
+                const rectZone = joyZone.getBoundingClientRect();
+                if (touch.clientX >= rectZone.left && touch.clientX <= rectZone.right &&
+                    touch.clientY >= rectZone.top && touch.clientY <= rectZone.bottom && joyTouchId === null) {
+                    
+                    joyTouchId = touch.identifier;
+                    const rectBase = joyBase.getBoundingClientRect();
+                    joyCenterX = rectBase.left + rectBase.width / 2;
+                    joyCenterY = rectBase.top + rectBase.height / 2;
+                    continue;
+                }
 
-        function handleJoystickMove(clientX, clientY) {
-            if (!joyActive) return;
-            let deltaX = clientX - joyCenterX;
-            let deltaY = clientY - joyCenterY;
-            const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+                // Проверяем кнопки действий (чтобы они не считывались как вращение камеры)
+                if (touch.clientX > window.innerWidth * 0.6 && touch.clientY > window.innerHeight * 0.5) {
+                    continue; 
+                }
 
-            if (dist > maxRadius) {
-                deltaX = (deltaX / dist) * maxRadius;
-                deltaY = (deltaY / dist) * maxRadius;
+                // Все остальные тачи идут на вращение камеры (даже во время бега!)
+                if (camTouchId === null && isGameRunning) {
+                    camTouchId = touch.identifier;
+                    prevTouchX = touch.clientX;
+                    prevTouchY = touch.clientY;
+                }
             }
-            joyStick.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
-            state.joyX = deltaX / maxRadius;
-            state.joyY = -(deltaY / maxRadius); 
-        }
-
-        function handleJoystickEnd() {
-            joyActive = false; joyTouchId = null; state.joyX = 0; state.joyY = 0;
-            joyStick.style.transform = 'translate(-50%, -50%)'; 
-        }
-
-        joyZone.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            const touch = e.changedTouches[0];
-            handleJoystickStart(touch.clientX, touch.clientY, touch.identifier);
         }, { passive: false });
 
         window.addEventListener('touchmove', (e) => {
-            if (!joyActive) return;
             for (let i = 0; i < e.touches.length; i++) {
-                if (e.touches[i].identifier === joyTouchId) {
-                    handleJoystickMove(e.touches[i].clientX, e.touches[i].clientY);
-                    break;
+                const touch = e.touches[i];
+
+                // Обработка движения джойстика
+                if (touch.identifier === joyTouchId) {
+                    let deltaX = touch.clientX - joyCenterX;
+                    let deltaY = touch.clientY - joyCenterY;
+                    const dist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+                    if (dist > maxRadius) {
+                        deltaX = (deltaX / dist) * maxRadius;
+                        deltaY = (deltaY / dist) * maxRadius;
+                    }
+                    joyStick.style.transform = `translate(calc(-50% + ${deltaX}px), calc(-50% + ${deltaY}px))`;
+                    state.joyX = deltaX / maxRadius;
+                    state.joyY = -(deltaY / maxRadius);
+                }
+
+                // Обработка вращения камеры (работает параллельно!)
+                if (touch.identifier === camTouchId && isGameRunning) {
+                    const movementX = touch.clientX - prevTouchX;
+                    const movementY = touch.clientY - prevTouchY;
+
+                    cameraAngleX -= movementX * 0.007;
+                    cameraAngleY = Math.max(0.05, Math.min(Math.PI / 2.5, cameraAngleY + movementY * 0.005));
+
+                    prevTouchX = touch.clientX;
+                    prevTouchY = touch.clientY;
                 }
             }
         }, { passive: false });
 
         window.addEventListener('touchend', (e) => {
-            if (!joyActive) return;
             for (let i = 0; i < e.changedTouches.length; i++) {
-                if (e.changedTouches[i].identifier === joyTouchId) { handleJoystickEnd(); break; }
+                const touch = e.changedTouches[i];
+                if (touch.identifier === joyTouchId) {
+                    joyTouchId = null;
+                    state.joyX = 0; state.joyY = 0;
+                    joyStick.style.transform = 'translate(-50%, -50%)';
+                }
+                if (touch.identifier === camTouchId) {
+                    camTouchId = null;
+                }
             }
         });
 
-        joyZone.addEventListener('mousedown', (e) => handleJoystickStart(e.clientX, e.clientY));
+        window.addEventListener('touchcancel', (e) => {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                if (touch.identifier === joyTouchId) {
+                    joyTouchId = null; state.joyX = 0; state.joyY = 0;
+                    joyStick.style.transform = 'translate(-50%, -50%)';
+                }
+                if (touch.identifier === camTouchId) { camTouchId = null; }
+            }
+        });
+
+        // Поддержка мышки для тестов на ПК
+        let isMousePanning = false;
+        window.addEventListener('mousedown', (e) => {
+            if (e.clientX < window.innerWidth * 0.4 && e.clientY > window.innerHeight * 0.5) {
+                state.joyX = (e.clientX - (window.innerWidth*0.15)) / maxRadius;
+                state.joyY = -((e.clientY - (window.innerHeight*0.85)) / maxRadius);
+                return;
+            }
+            isMousePanning = true; prevTouchX = e.clientX; prevTouchY = e.clientY;
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (isMousePanning && isGameRunning) {
+                cameraAngleX -= (e.clientX - prevTouchX) * 0.005;
+                cameraAngleY = Math.max(0.05, Math.min(Math.PI / 2.5, cameraAngleY + (e.clientY - prevTouchY) * 0.004));
+                prevTouchX = e.clientX; prevTouchY = e.clientY;
+            }
+        });
+        window.addEventListener('mouseup', () => { isMousePanning = false; });
 
         // --- КНОПКИ ДЕЙСТВИЙ ---
         document.getElementById('btn-attack').addEventListener('touchstart', (e) => { e.preventDefault(); triggerAttack(state.player); });
         document.getElementById('btn-attack').addEventListener('mousedown', () => triggerAttack(state.player));
 
-        document.getElementById('btn-dash').addEventListener('touchstart', (e) => { e.preventDefault(); triggerAttack(state.player); triggerDash(state.player); });
+        document.getElementById('btn-dash').addEventListener('touchstart', (e) => { e.preventDefault(); triggerDash(state.player); });
         document.getElementById('btn-dash').addEventListener('mousedown', () => triggerDash(state.player));
 
         const btnBlock = document.getElementById('btn-block');
@@ -358,7 +367,8 @@
         function restartGame() {
             state.player = { hp: 100, stamina: 100, isAttacking: false, combo: 0, isBlocking: false, isStunned: false, stunTimer: 0, attackTimer: 0, dashTimer: 0, isMoving: false };
             state.enemy = { hp: 100, stamina: 100, isAttacking: false, combo: 0, isBlocking: false, isStunned: false, stunTimer: 0, attackTimer: 0, dashTimer: 0, isMoving: false };
-            handleJoystickEnd();
+            joyTouchId = null; camTouchId = null; state.joyX = 0; state.joyY = 0;
+            joyStick.style.transform = 'translate(-50%, -50%)';
             player.position.set(0, 0, 3);
             enemy.position.set(0, 0, -3);
             cameraAngleX = 0; cameraAngleY = 0.3;
@@ -403,14 +413,12 @@
             if (state.player.hp <= 0) { endGame("BOT"); return; }
             if (state.enemy.hp <= 0) { endGame("YOU"); return; }
 
-            // Регенерация выносливости
             if (!state.player.isBlocking && !state.player.isStunned) state.player.stamina = Math.min(100, state.player.stamina + 25 * dt);
             if (!state.enemy.isBlocking && !state.enemy.isStunned) state.enemy.stamina = Math.min(100, state.enemy.stamina + 25 * dt);
 
             handleStun(state.player, player, 'stun-alert', dt);
             handleStun(state.enemy, enemy, null, dt);
 
-            // Скорость передвижения
             let moveSpeed = 5.2;
             if (state.player.dashTimer > 0) { moveSpeed = 16.0; state.player.dashTimer -= dt; }
 
@@ -419,7 +427,6 @@
             if (!state.player.isStunned && !state.player.isBlocking && hasJoyInput) {
                 state.player.isMoving = true;
 
-                // Движение рассчитывается относительно направления взгляда камеры (True Roblox Orbit)
                 const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngleX).normalize();
                 const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraAngleX).normalize();
                 
@@ -430,7 +437,6 @@
 
                 player.position.addScaledVector(moveDirection, moveSpeed * dt);
                 
-                // Персонаж плавно поворачивается лицом туда, куда бежит
                 const targetAngle = Math.atan2(moveDirection.x, moveDirection.z);
                 let diff = targetAngle - player.rotation.y;
                 while (diff < -Math.PI) diff += Math.PI * 2;
@@ -440,10 +446,9 @@
                 state.player.isMoving = false;
             }
 
-            // Бот просто разворачивается к игроку
             enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
 
-            // --- РАСЧЕТ КАМЕРЫ (СВОБОДНАЯ ОРБИТА ВОКРУГ ИГРОКА) ---
+            // --- РАСЧЕТ КАМЕРЫ (SHIFT LOCK С ОБЗОРОМ) ---
             const camRadius = 6.5; 
             const headPos = new THREE.Vector3(player.position.x, player.position.y + 1.4, player.position.z);
 
@@ -457,7 +462,7 @@
             camera.position.lerp(targetCamPos, 0.2); 
             camera.lookAt(headPos);
 
-            // Логика Бота ИИ
+            // ИИ Бота
             const dist = player.position.distanceTo(enemy.position);
             let botSpeed = 3.4;
             if (state.enemy.dashTimer > 0) { botSpeed = 14; state.enemy.dashTimer -= dt; }
