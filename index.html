@@ -285,12 +285,10 @@
             const dt = clock.getDelta();
             const time = clock.getElapsedTime();
 
+            // Menu Viewport Rendering (Epic static shot for main screen)
             if (!isGameRunning) {
-                const targetCamX = player.position.x;
-                const targetCamY = player.position.y + 7.5; 
-                const targetCamZ = player.position.z + 8.5; 
-                camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.1);
-                camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
+                camera.position.lerp(new THREE.Vector3(0, 3.5, 6.5), 0.05);
+                camera.lookAt(0, 1, 0);
                 renderer.render(scene, camera);
                 return;
             }
@@ -304,29 +302,63 @@
             handleStun(state.player, player, 'stun-alert', dt);
             handleStun(state.enemy, enemy, null, dt);
 
+            // CAMERA-RELATIVE PLAYER MOVEMENT (Saber Showdown Style)
             let moveSpeed = 4.5;
             if (state.player.dashTimer > 0) { moveSpeed = 16; state.player.dashTimer -= dt; }
 
-            const moveZ = (state.input.backward - state.input.forward) * moveSpeed * dt;
-            const moveX = (state.input.right - state.input.left) * moveSpeed * dt;
-            
             if (!state.player.isStunned && !state.player.isBlocking) {
-                player.position.z += moveZ; player.position.x += moveX;
-                state.player.isMoving = (moveZ !== 0 || moveX !== 0);
+                // Calculate directional vectors relative to the target (enemy)
+                const forwardDir = new THREE.Vector3().subVectors(enemy.position, player.position);
+                forwardDir.y = 0;
+                if (forwardDir.lengthSq() < 0.01) forwardDir.set(0, 0, -1);
+                else forwardDir.normalize();
+                
+                const rightDir = new THREE.Vector3(-forwardDir.z, 0, forwardDir.x); // Perpendicular vector for strafing
+
+                const moveVec = new THREE.Vector3();
+                if (state.input.forward) moveVec.add(forwardDir);
+                if (state.input.backward) moveVec.addScaledVector(forwardDir, -1);
+                if (state.input.right) moveVec.add(rightDir);
+                if (state.input.left) moveVec.addScaledVector(rightDir, -1);
+
+                state.player.isMoving = moveVec.lengthSq() > 0;
+
+                if (state.player.isMoving) {
+                    moveVec.normalize().multiplyScalar(moveSpeed * dt);
+                    player.position.add(moveVec);
+                }
             } else {
                 state.player.isMoving = false;
             }
 
+            // Always force characters to face each other
             player.lookAt(enemy.position.x, player.position.y, enemy.position.z);
             enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
 
-            const targetCamX = player.position.x;
-            const targetCamY = player.position.y + 7.5; 
-            const targetCamZ = player.position.z + 8.5; 
+            // LOCK-ON MOBILE CAMERA ENGINE (Behind Player's back looking through the shoulder)
+            const camDir = new THREE.Vector3().subVectors(player.position, enemy.position);
+            camDir.y = 0;
+            if (camDir.lengthSq() < 0.01) camDir.set(0, 0, 1);
+            else camDir.normalize();
 
-            camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.1);
-            camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
+            const camRight = new THREE.Vector3(-camDir.z, 0, camDir.x);
 
+            const backOffset = 4.0;    // Distance behind player
+            const shoulderOffset = 0.7; // Over-the-shoulder shift
+            const heightOffset = 1.9;   // Vertical view alignment
+
+            const targetCamX = player.position.x + camDir.x * backOffset + camRight.x * shoulderOffset;
+            const targetCamY = player.position.y + heightOffset;
+            const targetCamZ = player.position.z + camDir.z * backOffset + camRight.z * shoulderOffset;
+
+            // Smooth linear interpolation for modern camera dampening
+            camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.12);
+            
+            const lookTarget = new THREE.Vector3().copy(enemy.position);
+            lookTarget.y += 1.2; // Target look at chest height
+            camera.lookAt(lookTarget);
+
+            // Bot AI Logic
             const dist = player.position.distanceTo(enemy.position);
             let botSpeed = 3.2;
             if (state.enemy.dashTimer > 0) { botSpeed = 14; state.enemy.dashTimer -= dt; }
