@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Saber Showdown Fixed Camera</title>
+    <title>Saber Showdown Ultimate</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #e0e5ff; user-select: none; -webkit-user-select: none; touch-action: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
         
         /* Интерфейс статусов */
-        #ui-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 40px; color: #111; font-weight: bold; text-shadow: 0 1px 2px rgba(255,255,255,0.6); font-size: 16px; z-index: 10; pointer-events: none;}
+        #ui-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 40px; color: #111; font-weight: bold; text-shadow: 0 1px 2px rgba(255,255,255,0.6); font-size: 16px; z-index: 10; pointer-events: none; display: none; }
         .bar-container { margin-top: 5px; }
         .hp-bar { background: rgba(0,0,0,0.2); width: 130px; height: 14px; border-radius: 4px; border: 2px solid #111; overflow: hidden; }
         .stamina-bar { background: rgba(0,0,0,0.2); width: 130px; height: 8px; border-radius: 4px; border: 2px solid #111; overflow: hidden; margin-top: 4px; }
@@ -17,10 +17,11 @@
         #player-hp { background: #00cc99; }
         #enemy-hp { background: #ff0055; }
         .stamina-fill { background: #ffaa00; }
-        #stun-alert { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); color: #ff0055; font-size: 24px; font-weight: bold; display: none; text-shadow: 0 0 10px #ff0000; pointer-events: none;}
+        
+        #stun-alert { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); color: #ff0055; font-size: 24px; font-weight: bold; display: none; text-shadow: 0 0 10px #ff0000; pointer-events: none; z-index: 11;}
 
         /* Кнопки управления */
-        .controls-container { position: absolute; bottom: 30px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; box-sizing: border-box; pointer-events: none; z-index: 10; }
+        .controls-container { position: absolute; bottom: 30px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; box-sizing: border-box; pointer-events: none; z-index: 10; display: none; }
         .dpad { display: grid; grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(3, 60px); gap: 8px; pointer-events: auto; }
         .actions { display: flex; flex-direction: column; gap: 12px; pointer-events: auto; justify-content: center;}
         
@@ -31,18 +32,37 @@
         #btn-attack { background: rgba(255, 0, 85, 0.7); border-color: #ff0055; }
         #btn-block { background: rgba(0, 150, 255, 0.7); border-color: #00ccff; }
         #btn-dash { background: rgba(255, 130, 0, 0.7); border-color: #ff9900; }
+
+        /* Окна меню */
+        .screen-overlay { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(224, 229, 255, 0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; }
+        .menu-title { font-size: 36px; font-weight: bold; color: #111; margin-bottom: 30px; text-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; }
+        .menu-btn { padding: 15px 40px; font-size: 20px; font-weight: bold; color: white; background: #0055ff; border: 3px solid #0033aa; border-radius: 15px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,85,255,0.4); -webkit-tap-highlight-color: transparent; }
+        .menu-btn:active { transform: scale(0.95); background: #0033aa; }
+        
+        #game-over-screen { display: none; background: rgba(0, 0, 0, 0.75); }
+        #game-over-screen .menu-title { color: #fff; }
     </style>
 </head>
 <body>
 
+    <div id="main-menu" class="screen-overlay">
+        <div class="menu-title">SABER SHOWDOWN</div>
+        <button class="menu-btn" onclick="startGame()">Start Game</button>
+    </div>
+
+    <div id="game-over-screen" class="screen-overlay">
+        <div class="menu-title" id="win-text">Somebody won</div>
+        <button class="menu-btn" onclick="restartGame()" style="background:#00cc99; border-color:#008866; box-shadow: 0 5px 15px rgba(0,204,153,0.4);">ИГРАТЬ СНОВА</button>
+    </div>
+
     <div id="ui-overlay">
-        <div>ВЫ (КЕНТ)
+        <div>You
             <div class="bar-container">
                 <div class="hp-bar"><div id="player-hp" class="fill"></div></div>
                 <div class="stamina-bar"><div id="player-stamina" class="fill stamina-fill"></div></div>
             </div>
         </div>
-        <div>ВРАГ (БОТ)
+        <div>Bot
             <div class="bar-container">
                 <div class="hp-bar"><div id="enemy-hp" class="fill"></div></div>
                 <div class="stamina-bar"><div id="enemy-stamina" class="fill stamina-fill"></div></div>
@@ -50,9 +70,9 @@
         </div>
     </div>
 
-    <div id="stun-alert">ОГЛУШЕН!</div>
+    <div id="stun-alert">💥 Stunnes ! Stamina 0!</div>
 
-    <div class="controls-container">
+    <div class="controls-container" id="controls">
         <div class="dpad">
             <div></div><div class="btn" id="btn-up">▲</div><div></div>
             <div class="btn" id="btn-left">◀</div><div></div><div class="btn" id="btn-right">▶</div>
@@ -67,11 +87,12 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
+        let isGameRunning = false;
+
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xe0e5ff); 
         scene.fog = new THREE.FogExp2(0xe0e5ff, 0.015);
 
-        // --- ЖЕЛЕЗОБЕТОННАЯ КАМЕРА ---
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -80,7 +101,6 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        // Освещение
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0xa0a0ff, 0.8);
         scene.add(hemiLight);
         
@@ -89,7 +109,6 @@
         dirLight.castShadow = true;
         scene.add(dirLight);
 
-        // Чистый белый пол
         const floor = new THREE.Mesh(
             new THREE.PlaneGeometry(150, 150), 
             new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1 })
@@ -100,10 +119,8 @@
         
         scene.add(new THREE.GridHelper(150, 60, 0x00ccff, 0xcccccc));
 
-        // Функция создания персонажа
         function createRobloxCharacter(shirtColor, pantsColor, saberColor) {
             const group = new THREE.Group();
-            
             const skinMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.5 });
             const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor, roughness: 0.6 });
             const pantsMat = new THREE.MeshStandardMaterial({ color: pantsColor, roughness: 0.6 });
@@ -130,7 +147,6 @@
             const lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.28), pantsMat); 
             lLeg.position.y = -0.35; lLeg.castShadow = true; lLegPivot.add(lLeg); group.add(lLegPivot);
 
-            // МЕЧ
             const saberHolder = new THREE.Group();
             saberHolder.position.set(0, -0.9, 0.05); 
 
@@ -149,51 +165,82 @@
 
         const player = createRobloxCharacter(0x0055ff, 0x222222, 0x00ffcc);
         const enemy = createRobloxCharacter(0xff2233, 0x111111, 0xff0055);
+        
+        // Начальные позиции
         player.position.set(0, 0, 3);
         enemy.position.set(0, 0, -3);
-        scene.add(player);
-        scene.add(enemy);
+        scene.add(player, enemy);
 
-        // --- ГЕЙМПЛЕЙНЫЙ ДВИЖОК ---
         const state = {
             player: { hp: 100, stamina: 100, isAttacking: false, combo: 0, isBlocking: false, isStunned: false, stunTimer: 0, attackTimer: 0, dashTimer: 0, isMoving: false },
             enemy: { hp: 100, stamina: 100, isAttacking: false, combo: 0, isBlocking: false, isStunned: false, stunTimer: 0, attackTimer: 0, dashTimer: 0, isMoving: false },
             input: { forward: 0, backward: 0, left: 0, right: 0 }
         };
 
+        // Навешиваем кнопки управления
         const keys = { "btn-up": 'forward', "btn-down": 'backward', "btn-left": 'left', "btn-right": 'right' };
         Object.keys(keys).forEach(id => {
             const btn = document.getElementById(id);
-            btn.addEventListener('touchstart', (e) => { e.preventDefault(); state.input[keys[id]] = 1; });
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); if(isGameRunning) state.input[keys[id]] = 1; });
             btn.addEventListener('touchend', (e) => { e.preventDefault(); state.input[keys[id]] = 0; });
-            btn.addEventListener('mousedown', () => state.input[keys[id]] = 1);
+            btn.addEventListener('mousedown', () => { if(isGameRunning) state.input[keys[id]] = 1; });
             btn.addEventListener('mouseup', () => state.input[keys[id]] = 0);
             btn.addEventListener('mouseleave', () => state.input[keys[id]] = 0);
         });
 
-        const btnAtk = document.getElementById('btn-attack');
-        btnAtk.addEventListener('touchstart', (e) => { e.preventDefault(); triggerAttack(state.player); });
-        btnAtk.addEventListener('mousedown', () => triggerAttack(state.player));
+        document.getElementById('btn-attack').addEventListener('touchstart', (e) => { e.preventDefault(); if(isGameRunning) triggerAttack(state.player); });
+        document.getElementById('btn-attack').addEventListener('mousedown', () => { if(isGameRunning) triggerAttack(state.player); });
 
-        const btnDash = document.getElementById('btn-dash');
-        btnDash.addEventListener('touchstart', (e) => { e.preventDefault(); triggerDash(state.player); });
-        btnDash.addEventListener('mousedown', () => triggerDash(state.player));
+        document.getElementById('btn-dash').addEventListener('touchstart', (e) => { e.preventDefault(); if(isGameRunning) triggerDash(state.player); });
+        document.getElementById('btn-dash').addEventListener('mousedown', () => { if(isGameRunning) triggerDash(state.player); });
 
         const btnBlock = document.getElementById('btn-block');
-        btnBlock.addEventListener('touchstart', (e) => { e.preventDefault(); if(!state.player.isStunned) state.player.isBlocking = true; });
+        btnBlock.addEventListener('touchstart', (e) => { e.preventDefault(); if(isGameRunning && !state.player.isStunned) state.player.isBlocking = true; });
         btnBlock.addEventListener('touchend', (e) => { e.preventDefault(); state.player.isBlocking = false; });
-        btnBlock.addEventListener('mousedown', () => { if(!state.player.isStunned) state.player.isBlocking = true; });
+        btnBlock.addEventListener('mousedown', () => { if(isGameRunning && !state.player.isStunned) state.player.isBlocking = true; });
         btnBlock.addEventListener('mouseup', () => state.player.isBlocking = false);
         btnBlock.addEventListener('mouseleave', () => state.player.isBlocking = false);
 
         function triggerAttack(charState) {
-            if (charState.isStunned || charState.isBlocking || charState.isAttacking || charState.stamina < 15) return;
-            charState.isAttacking = true; charState.attackTimer = 0; charState.stamina -= 15;
+            if (charState.isStunned || charState.isBlocking || charState.isAttacking || charState.stamina < 25) return;
+            charState.isAttacking = true; charState.attackTimer = 0; charState.stamina -= 25;
         }
 
         function triggerDash(charState) {
-            if (charState.isStunned || charState.dashTimer > 0 || charState.stamina < 20) return;
-            charState.dashTimer = 0.2; charState.stamina -= 20;
+            if (charState.isStunned || charState.dashTimer > 0 || charState.stamina < 15) return;
+            charState.dashTimer = 0.2; charState.stamina -= 15;
+        }
+
+        // Функции переключения экранов меню
+        function startGame() {
+            document.getElementById('main-menu').style.display = 'none';
+            document.getElementById('ui-overlay').style.display = 'flex';
+            document.getElementById('controls').style.display = 'flex';
+            isGameRunning = true;
+        }
+
+        function restartGame() {
+            // Полный сброс параметров
+            state.player = { hp: 100, stamina: 100, isAttacking: false, combo: 0, isBlocking: false, isStunned: false, stunTimer: 0, attackTimer: 0, dashTimer: 0, isMoving: false };
+            state.enemy = { hp: 100, stamina: 100, isAttacking: false, combo: 0, isBlocking: false, isStunned: false, stunTimer: 0, attackTimer: 0, dashTimer: 0, isMoving: false };
+            state.input = { forward: 0, backward: 0, left: 0, right: 0 };
+            
+            player.position.set(0, 0, 3);
+            enemy.position.set(0, 0, -3);
+            
+            player.userData.head.rotation.x = 0;
+            enemy.userData.head.rotation.x = 0;
+
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('stun-alert').style.display = 'none';
+            updateUI();
+            isGameRunning = true;
+        }
+
+        function endGame(winnerName) {
+            isGameRunning = false;
+            document.getElementById('win-text').innerText = winnerName + " ПОБЕДИЛ!";
+            document.getElementById('game-over-screen').style.display = 'flex';
         }
 
         const clock = new THREE.Clock();
@@ -203,17 +250,30 @@
             const dt = clock.getDelta();
             const time = clock.getElapsedTime();
 
-            if (state.player.hp <= 0 || state.enemy.hp <= 0) {
-                document.getElementById('ui-overlay').innerHTML = "РАУНД ОКОНЧЕН"; return;
+            // Если игра не активна, работает только камера и базовая анимация покачивания
+            if (!isGameRunning) {
+                // Статичная красивая камера для меню
+                const targetCamX = player.position.x;
+                const targetCamY = player.position.y + 7.5; 
+                const targetCamZ = player.position.z + 8.5; 
+                camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.1);
+                camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
+                renderer.render(scene, camera);
+                return;
             }
 
-            if (!state.player.isBlocking && !state.player.isStunned) state.player.stamina = Math.min(100, state.player.stamina + 30 * dt);
-            if (!state.enemy.isBlocking && !state.enemy.isStunned) state.enemy.stamina = Math.min(100, state.enemy.stamina + 30 * dt);
+            // Проверка конца боя
+            if (state.player.hp <= 0) { endGame("БОТ"); return; }
+            if (state.enemy.hp <= 0) { endGame("ВЫ (КЕНТ)"); return; }
+
+            // Регенерация стамины
+            if (!state.player.isBlocking && !state.player.isStunned) state.player.stamina = Math.min(100, state.player.stamina + 22 * dt);
+            if (!state.enemy.isBlocking && !state.enemy.isStunned) state.enemy.stamina = Math.min(100, state.enemy.stamina + 22 * dt);
 
             handleStun(state.player, player, 'stun-alert', dt);
             handleStun(state.enemy, enemy, null, dt);
 
-            // Передвижение
+            // Движение игрока
             let moveSpeed = 4.5;
             if (state.player.dashTimer > 0) { moveSpeed = 16; state.player.dashTimer -= dt; }
 
@@ -230,12 +290,10 @@
             player.lookAt(enemy.position.x, player.position.y, enemy.position.z);
             enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
 
-            // --- ОБНОВЛЕННАЯ ЛОГИКА КАМЕРЫ (ФИКСИРОВАННАЯ) ---
-            // Камера всегда висит на фиксированном расстоянии от игрока
-            // Не вращается, не прыгает, просто плавно едет за тобой
+            // Железобетонная камера едет следом
             const targetCamX = player.position.x;
-            const targetCamY = player.position.y + 7.5; // Высота камеры
-            const targetCamZ = player.position.z + 8.5; // Отдаление камеры назад
+            const targetCamY = player.position.y + 7.5; 
+            const targetCamZ = player.position.z + 8.5; 
 
             camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.1);
             camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
@@ -292,6 +350,7 @@
                 if (charState.stunTimer <= 0) {
                     charState.isStunned = false; charObj.userData.head.rotation.x = 0;
                     if (alertId) document.getElementById(alertId).style.display = 'none';
+                    charState.stamina = 30; 
                 }
             }
         }
@@ -315,13 +374,17 @@
                     const dist = attObj.position.distanceTo(defObj.position);
                     if (dist < 2.3) {
                         let damage = attState.combo === 2 ? 22 : 12;
+                        
                         if (defState.isBlocking) {
-                            defState.stamina -= attState.combo === 2 ? 45 : 20;
+                            defState.stamina -= attState.combo === 2 ? 65 : 35;
                             createClashEffect(attObj.position, defObj.position, p.saberColor);
+                            
                             if (defState.stamina <= 0) {
-                                defState.stamina = 0; defState.isBlocking = false; defState.isStunned = true; defState.stunTimer = 1.3; 
+                                defState.stamina = 0; defState.isBlocking = false; defState.isStunned = true; defState.stunTimer = 1.8; 
                             }
-                        } else defState.hp = Math.max(0, defState.hp - damage);
+                        } else {
+                            defState.hp = Math.max(0, defState.hp - damage);
+                        }
                     }
                     attState.combo = (attState.combo + 1) % 3; 
                 }
