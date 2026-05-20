@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Saber Showdown Fixed Camera & Saber</title>
+    <title>Saber Showdown Locked Camera</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #0a0a20; user-select: none; -webkit-user-select: none; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #e0e5ff; user-select: none; -webkit-user-select: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
         
         /* Интерфейс статусов */
@@ -54,7 +54,7 @@
     </div>
 
     <div id="stun-alert">ОГЛУШЕН!</div>
-    <div id="cam-hint">📱 Проведи пальцем вверху экрана, чтобы вращать камеру</div>
+    <div id="cam-hint">📱 Крути влево/вправо вверху экрана, чтобы вращать обзор вокруг головы</div>
 
     <div class="controls-container">
         <div class="dpad">
@@ -72,20 +72,21 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xe0e5ff); // Светлое небо под белый пол
+        scene.background = new THREE.Color(0xe0e5ff); 
         scene.fog = new THREE.FogExp2(0xe0e5ff, 0.015);
 
-        // --- ОБНОВЛЕННАЯ СИСТЕМА КАМЕРЫ (ФИКС УХОДА ВНИЗ) ---
+        // --- ОБНОВЛЕННАЯ СИСТЕМА ПРИВЯЗАННОЙ КАМЕРЫ (LOCKED ON HEAD) ---
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         const cameraPivot = new THREE.Group();
         scene.add(cameraPivot);
         cameraPivot.add(camera);
         
-        let camAngleY = 0; 
-        let camAngleX = 0.5; // Начальный угол обзора сверху вниз
+        let camAngleY = 0; // Вращение только влево/вправо
+        const FIXED_ANGLE_X = 0.45; // Залоченный фиксированный угол наклона сверху вниз
         
-        // Отодвигаем камеру назад и приподнимаем
-        camera.position.set(0, 0, 8); 
+        // Отодвигаем камеру назад и чуть вверх внутри пивота
+        camera.position.set(0, 3.5, 7.5); 
+        camera.lookAt(0, 1.2, 0);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
@@ -93,19 +94,19 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.body.appendChild(renderer.domElement);
 
-        // Свет
+        // Освещение
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0xa0a0ff, 0.8);
         scene.add(hemiLight);
         
-        const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-        dirLight.position.set(10, 20, 10);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.1);
+        dirLight.position.set(15, 25, 15);
         dirLight.castShadow = true;
-        dirLight.shadow.mapSize.width = 2048; // Выше качество теней на белом полу
+        dirLight.shadow.mapSize.width = 2048; 
         dirLight.shadow.mapSize.height = 2048;
         dirLight.shadow.bias = -0.0005;
         scene.add(dirLight);
 
-        // Белая земля
+        // Чистый белый пол
         const floor = new THREE.Mesh(
             new THREE.PlaneGeometry(150, 150), 
             new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.1 })
@@ -114,10 +115,9 @@
         floor.receiveShadow = true;
         scene.add(floor);
         
-        // Светло-серая сетка на полу для видимости движения
         scene.add(new THREE.GridHelper(150, 60, 0x00ccff, 0xcccccc));
 
-        // --- СОЗДАНИЕ ПЕРСОНАЖА С ПРАВИЛЬНЫМ ОРТОГОНАЛЬНЫМ ХВАТОМ МЕЧА ---
+        // Функция создания персонажа (Перпендикулярные саберы сохранены!)
         function createRobloxCharacter(shirtColor, pantsColor, saberColor) {
             const group = new THREE.Group();
             
@@ -155,28 +155,23 @@
             const lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.28), pantsMat); lLeg.position.y = -0.35; lLeg.castShadow = true;
             lLegPivot.add(lLeg); group.add(lLegPivot);
 
-            // --- ИСПРАВЛЕННЫЙ МЕЧ: КРЕПИТСЯ ПЕРПЕНДИКУЛЯРНО КИСТИ ---
+            // МЕЧ ИЗ КИСТИ (ПЕРПЕНДИКУЛЯРНО)
             const saberHolder = new THREE.Group();
-            saberHolder.position.set(0, -0.9, 0.05); // Точка кисти руки
+            saberHolder.position.set(0, -0.9, 0.05); 
 
-            // РУКОЯТКА: Теперь она лежит поперек ладони
             const handleGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.3, 8);
             const handleMat = new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.7 });
             const handle = new THREE.Mesh(handleGeo, handleMat);
-            // Поворачиваем саму модельку цилиндра, чтобы она была направлена вперед, а не вдоль руки!
             handle.rotation.x = Math.PI / 2; 
             saberHolder.add(handle);
 
-            // КЛИНОК LIGHTSABER: Выходит прямо из рукоятки вперед
             const bladeGeo = new THREE.CylinderGeometry(0.03, 0.03, 1.4, 8);
             const bladeMat = new THREE.MeshBasicMaterial({ color: saberColor });
             const blade = new THREE.Mesh(bladeGeo, bladeMat);
-            // Сдвигаем лезвие по оси Z вперед и разворачиваем его перпендикулярно руке
             blade.position.z = 0.7; 
             blade.rotation.x = Math.PI / 2;
             saberHolder.add(blade);
 
-            // Освещение от клинка
             const light = new THREE.PointLight(saberColor, 1.5, 4);
             light.position.z = 0.5;
             saberHolder.add(light);
@@ -194,42 +189,34 @@
         scene.add(player);
         scene.add(enemy);
 
-        // --- УПРАВЛЕНИЕ СВАЙПАМИ И ЗАЩИТА КАМЕРЫ ---
+        // --- СВАЙПЫ ТОЛЬКО ВЛЕВО И ВПРАВО (ГОРИЗОНТАЛЬ) ---
         let isDragging = false;
-        let prevTouchX = 0, prevTouchY = 0;
+        let prevTouchX = 0;
 
         window.addEventListener('touchstart', (e) => {
             if (e.touches[0].clientY < window.innerHeight * 0.65) {
                 isDragging = true;
                 prevTouchX = e.touches[0].clientX;
-                prevTouchY = e.touches[0].clientY;
             }
         });
 
         window.addEventListener('touchmove', (e) => {
             if (!isDragging) return;
             const deltaX = e.touches[0].clientX - prevTouchX;
-            const deltaY = e.touches[0].clientY - prevTouchY;
-
-            camAngleY -= deltaX * 0.007;
             
-            // ФИКС ТУТ: Теперь минимальный угол 0.25 (камера физически не опустится на уровень земли и ниже)
-            // Максимальный 1.2 — почти полный вид сверху (как в Roblox)
-            camAngleX = THREE.MathUtils.clamp(camAngleX - deltaY * 0.005, 0.25, 1.2); 
-
+            // Вращаем только вокруг вертикальной оси
+            camAngleY -= deltaX * 0.008;
             prevTouchX = e.touches[0].clientX;
-            prevTouchY = e.touches[0].clientY;
         });
 
         window.addEventListener('touchend', () => isDragging = false);
 
-        // Мышь для ПК
-        window.addEventListener('mousedown', (e) => { if(e.clientY < window.innerHeight * 0.65) { isDragging = true; prevTouchX = e.clientX; prevTouchY = e.clientY; } });
+        // Мышь для тестов ПК
+        window.addEventListener('mousedown', (e) => { if(e.clientY < window.innerHeight * 0.65) { isDragging = true; prevTouchX = e.clientX; } });
         window.addEventListener('mousemove', (e) => {
             if (!isDragging) return;
-            camAngleY -= (e.clientX - prevTouchX) * 0.006;
-            camAngleX = THREE.MathUtils.clamp(camAngleX - (e.clientY - prevTouchY) * 0.004, 0.25, 1.2);
-            prevTouchX = e.clientX; prevTouchY = e.clientY;
+            camAngleY -= (e.clientX - prevTouchX) * 0.007;
+            prevTouchX = e.clientX;
         });
         window.addEventListener('mouseup', () => isDragging = false);
 
@@ -281,14 +268,13 @@
                 document.getElementById('ui-overlay').innerHTML = "РАУНД ОКОНЧЕН"; return;
             }
 
-            // Восстановление выносливости
             if (!state.player.isBlocking && !state.player.isStunned) state.player.stamina = Math.min(100, state.player.stamina + 30 * dt);
             if (!state.enemy.isBlocking && !state.enemy.isStunned) state.enemy.stamina = Math.min(100, state.enemy.stamina + 30 * dt);
 
             handleStun(state.player, player, 'stun-alert', dt);
             handleStun(state.enemy, enemy, null, dt);
 
-            // Движение игрока
+            // Передвижение игрока
             let moveSpeed = 4.5;
             if (state.player.dashTimer > 0) { moveSpeed = 16; state.player.dashTimer -= dt; }
 
@@ -305,12 +291,16 @@
             player.lookAt(enemy.position.x, player.position.y, enemy.position.z);
             enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
 
-            // ПЛАВНОЕ СЛЕДОВАНИЕ ПОЗИЦИИ КАМЕРЫ
-            cameraPivot.position.lerp(new THREE.Vector3(player.position.x, player.position.y + 1.2, player.position.z), 0.1);
-            cameraPivot.rotation.y = THREE.MathUtils.lerp(cameraPivot.rotation.y, camAngleY, 0.1);
-            cameraPivot.rotation.x = THREE.MathUtils.lerp(cameraPivot.rotation.x, camAngleX, 0.1);
+            // --- ЖЕСТКОЕ ЗАКРЕПЛЕНИЕ КАМЕРЫ НА ГОЛОВЕ ИГРОКА (LOCKED THIRD PERSON) ---
+            // Точка привязки — это координаты головы игрока (Y + 1.85)
+            const headPosition = new THREE.Vector3(player.position.x, player.position.y + 1.85, player.position.z);
+            cameraPivot.position.copy(headPosition); 
+            
+            // Плавное вращение только влево-вправо. Ось X залочена на FIXED_ANGLE_X
+            cameraPivot.rotation.y = THREE.MathUtils.lerp(cameraPivot.rotation.y, camAngleY, 0.12);
+            cameraPivot.rotation.x = FIXED_ANGLE_X; 
 
-            // ИИ Бота
+            // Логика бота
             const dist = player.position.distanceTo(enemy.position);
             let botSpeed = 3.2;
             if (state.enemy.dashTimer > 0) { botSpeed = 14; state.enemy.dashTimer -= dt; }
@@ -337,7 +327,6 @@
             renderer.render(scene, camera);
         }
 
-        // Анимации рук, ног и БОЕВОЙ СТОЙКИ С МЕЧОМ ВПЕРЕД
         function animateLimbs(obj, charState, time) {
             const p = obj.userData; if (charState.isStunned) return;
 
@@ -347,14 +336,12 @@
                 p.lArmPivot.rotation.x = Math.sin(time * 14) * 0.3;
                 
                 if (!charState.isAttacking && !charState.isBlocking) {
-                    // При беге держит направленным вперед-вверх
                     p.rArmPivot.rotation.set(-Math.PI / 3, -Math.PI / 6, 0);
                 }
             } else {
                 p.rLegPivot.rotation.x = 0; p.lLegPivot.rotation.x = 0; p.lArmPivot.rotation.x = 0;
                 
                 if (!charState.isAttacking && !charState.isBlocking) {
-                    // Боевая классическая стойка — рука поднята, меч смотрит ровно на врага
                     p.rArmPivot.rotation.set(-Math.PI / 2.2, -Math.PI / 6, 0); 
                     p.lArmPivot.rotation.set(0, 0, -0.1);
                 }
@@ -378,7 +365,6 @@
             const p = attObj.userData; if (attState.isStunned) return;
 
             if (attState.isBlocking) {
-                // Меч выставлен вертикально перед лицом (скрещенная защита)
                 p.rArmPivot.rotation.set(-Math.PI / 1.5, 0, Math.PI / 4); 
                 return;
             }
@@ -387,7 +373,6 @@
                 attState.attackTimer += dt * 9; 
                 
                 if (attState.attackTimer < Math.PI) {
-                    // Красивый замах и прорубание по дуге
                     if (attState.combo === 0) { 
                         p.rArmPivot.rotation.set(-Math.PI/2.5, Math.sin(attState.attackTimer) * 1.8 - 0.9, 0);
                     } else if (attState.combo === 1) { 
