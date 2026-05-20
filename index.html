@@ -3,36 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Saber Showdown Web Mobile</title>
+    <title>Saber Showdown Advanced</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #050505; user-select: none; -webkit-user-select: none; }
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #050505; user-select: none; -webkit-user-select: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
         
-        /* Интерфейс здоровья */
-        #ui-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 40px; color: white; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.8); font-size: 18px; z-index: 10;}
-        .hp-bar { background: rgba(255,255,255,0.2); width: 120px; height: 15px; border-radius: 10px; border: 2px solid #fff; overflow: hidden; margin-top: 5px; }
-        .hp-fill { height: 100%; width: 100%; transition: width 0.2s; }
+        /* Интерфейс статусов */
+        #ui-overlay { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; gap: 40px; color: white; font-weight: bold; text-shadow: 0 2px 4px rgba(0,0,0,0.8); font-size: 16px; z-index: 10;}
+        .bar-container { margin-top: 5px; }
+        .hp-bar { background: rgba(255,255,255,0.1); width: 130px; height: 14px; border-radius: 4px; border: 2px solid #fff; overflow: hidden; }
+        .stamina-bar { background: rgba(255,255,255,0.1); width: 130px; height: 8px; border-radius: 4px; border: 2px solid #fff; overflow: hidden; margin-top: 4px; }
+        .fill { height: 100%; width: 100%; transition: width 0.1s; }
         #player-hp { background: #00ffcc; }
         #enemy-hp { background: #ff0055; }
+        .stamina-fill { background: #ffcc00; }
+        #stun-alert { position: absolute; top: 100px; left: 50%; transform: translateX(-50%); color: #ff0055; font-size: 24px; font-weight: bold; display: none; text-shadow: 0 0 10px #ff0000; }
 
-        /* Экранные кнопки для телефона */
+        /* Кнопки управления */
         .controls-container { position: absolute; bottom: 30px; left: 0; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; box-sizing: border-box; pointer-events: none; z-index: 10; }
         .dpad { display: grid; grid-template-columns: repeat(3, 60px); grid-template-rows: repeat(3, 60px); gap: 8px; pointer-events: auto; }
-        .actions { display: flex; flex-direction: column; gap: 15px; pointer-events: auto; justify-content: center;}
+        .actions { display: flex; flex-direction: column; gap: 12px; pointer-events: auto; justify-content: center;}
         
-        .btn { background: rgba(255, 255, 255, 0.15); border: 2px solid rgba(255,255,255,0.4); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; -webkit-tap-highlight-color: transparent; }
-        .btn:active { background: rgba(255, 255, 255, 0.4); transform: scale(0.95); }
-        .action-btn { width: 75px; height: 75px; border-radius: 18px; font-size: 14px; }
-        #btn-attack { background: rgba(255, 0, 85, 0.3); border-color: #ff0055; }
-        #btn-block { background: rgba(0, 200, 255, 0.3); border-color: #00ccff; }
+        .btn { background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255,255,255,0.4); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; -webkit-tap-highlight-color: transparent; }
+        .btn:active { background: rgba(255, 255, 255, 0.3); transform: scale(0.95); }
+        .action-btn { width: 85px; height: 50px; border-radius: 12px; font-size: 13px; }
+        #btn-attack { background: rgba(255, 0, 85, 0.25); border-color: #ff0055; }
+        #btn-block { background: rgba(0, 200, 255, 0.25); border-color: #00ccff; }
+        #btn-dash { background: rgba(255, 153, 0, 0.25); border-color: #ff9900; }
     </style>
 </head>
 <body>
 
     <div id="ui-overlay">
-        <div>ИГРОК <div class="hp-bar"><div id="player-hp" class="hp-fill"></div></div></div>
-        <div>БОТ <div class="hp-bar"><div id="enemy-hp" class="hp-fill"></div></div></div>
+        <div>ИГРОК 
+            <div class="bar-container">
+                <div class="hp-bar"><div id="player-hp" class="fill"></div></div>
+                <div class="stamina-bar"><div id="player-stamina" class="fill stamina-fill"></div></div>
+            </div>
+        </div>
+        <div>БОТ 
+            <div class="bar-container">
+                <div class="hp-bar"><div id="enemy-hp" class="fill"></div></div>
+                <div class="stamina-bar"><div id="enemy-stamina" class="fill stamina-fill"></div></div>
+            </div>
+        </div>
     </div>
+
+    <div id="stun-alert">ОГЛУШЕН!</div>
 
     <div class="controls-container">
         <div class="dpad">
@@ -41,6 +58,7 @@
             <div></div><div class="btn" id="btn-down">▼</div><div></div>
         </div>
         <div class="actions">
+            <div class="btn action-btn" id="btn-dash">РЫВОК</div>
             <div class="btn action-btn" id="btn-attack">УДАР</div>
             <div class="btn action-btn" id="btn-block">БЛОК</div>
         </div>
@@ -48,10 +66,9 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // --- НАСТРОЙКА СЦЕНЫ ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x0a0a12);
-        scene.fog = new THREE.FogExp2(0x0a0a12, 0.03);
+        scene.background = new THREE.Color(0x05050a);
+        scene.fog = new THREE.FogExp2(0x05050a, 0.03);
 
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -59,76 +76,88 @@
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // --- СВЕТ ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
-        scene.add(ambientLight);
-        const dirLight = new THREE.DirectionalLight(0x90a0ff, 0.8);
-        dirLight.position.set(10, 20, 10);
+        scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+        const dirLight = new THREE.DirectionalLight(0xaaafff, 0.8);
+        dirLight.position.set(15, 25, 15);
         dirLight.castShadow = true;
         scene.add(dirLight);
 
-        // --- АРЕНА (ПОЛ) ---
-        const floorGeo = new THREE.PlaneGeometry(60, 60);
-        const floorMat = new THREE.MeshStandardMaterial({ color: 0x151522, roughness: 0.8 });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
+        // Пол
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ color: 0x111118, roughness: 0.7 }));
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         scene.add(floor);
+        scene.add(new THREE.GridHelper(80, 40, 0x00ffcc, 0x1a1a2e));
 
-        const grid = new THREE.GridHelper(60, 30, 0x00ffcc, 0x223344);
-        grid.position.y = 0.01;
-        scene.add(grid);
-
-        // --- СОЗДАНИЕ ПЕРСОНАЖЕЙ ---
-        function createCharacter(color, saberColor) {
+        // --- СОЗДАНИЕ РОБЛОКС-ПЕРСОНАЖА ---
+        function createRobloxCharacter(bodyColor, saberColor) {
             const group = new THREE.Group();
-            
-            // Заменили на CylinderGeometry (работает везде!)
-            const bodyGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.6, 12);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.y = 0.8;
-            body.castShadow = true;
-            group.add(body);
+            const mat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.6 });
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffcc99, roughness: 0.6 });
 
-            // Световой меч
-            const saberGroup = new THREE.Group();
-            saberGroup.position.set(0.6, 1, 0.3);
+            // Торс
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.4), mat);
+            torso.position.y = 1.1;
+            torso.castShadow = true;
+            group.add(torso);
 
-            const bladeGeo = new THREE.CylinderGeometry(0.04, 0.04, 1.5, 8);
-            const bladeMat = new THREE.MeshBasicMaterial({ color: saberColor });
-            const blade = new THREE.Mesh(bladeGeo, bladeMat);
-            blade.position.y = 0.75;
-            saberGroup.add(blade);
-            
-            const light = new THREE.PointLight(saberColor, 1, 4);
-            light.position.y = 1;
-            saberGroup.add(light);
+            // Голова
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), skinMat);
+            head.position.y = 1.85;
+            head.castShadow = true;
+            group.add(head);
 
-            group.add(saberGroup);
-            group.userData = { body, saber: saberGroup };
+            // Руки (Плечевые шарниры для анимации)
+            const rArmPivot = new THREE.Group(); rArmPivot.position.set(0.55, 1.5, 0);
+            const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), mat); rArm.position.y = -0.4; rArm.castShadow = true;
+            rArmPivot.add(rArm); group.add(rArmPivot);
+
+            const lArmPivot = new THREE.Group(); lArmPivot.position.set(-0.55, 1.5, 0);
+            const lArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), mat); lArm.position.y = -0.4; lArm.castShadow = true;
+            lArmPivot.add(lArm); group.add(lArmPivot);
+
+            // Ноги
+            const rLegPivot = new THREE.Group(); rLegPivot.position.set(0.2, 0.6, 0);
+            const rLeg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.28), mat); rLeg.position.y = -0.3; rLeg.castShadow = true;
+            rLegPivot.add(rLeg); group.add(rLegPivot);
+
+            const lLegPivot = new THREE.Group(); lLegPivot.position.set(-0.2, 0.6, 0);
+            const lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.28), mat); lLeg.position.y = -0.3; lLeg.castShadow = true;
+            lLegPivot.add(lLeg); group.add(lLegPivot);
+
+            // Меч в правой руке
+            const saber = new THREE.Group();
+            saber.position.set(0, -0.8, 0.1);
+            const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 8), new THREE.MeshBasicMaterial({ color: saberColor }));
+            blade.position.y = 0.6;
+            saber.add(blade);
+            const light = new THREE.PointLight(saberColor, 1.2, 5);
+            light.position.y = 0.8;
+            saber.add(light);
+            rArmPivot.add(saber);
+
+            group.userData = { head, rArmPivot, lArmPivot, rLegPivot, lLegPivot, saber };
             return group;
         }
 
-        const player = createCharacter(0x333333, 0x00ffcc);
-        const enemy = createCharacter(0x552222, 0xff0055);
-        player.position.set(0, 0, 5);
-        enemy.position.set(0, 0, -5);
+        const player = createRobloxCharacter(0x222222, 0x00ffcc);
+        const enemy = createRobloxCharacter(0x551111, 0xff0055);
+        player.position.set(0, 0, 4);
+        enemy.position.set(0, 0, -4);
         scene.add(player);
         scene.add(enemy);
 
-        // --- ДАННЫЕ ИГРОКОВ ---
+        // --- СОСТОЯНИЕ ГЕЙМПЛЕЯ ---
         const state = {
-            player: { hp: 100, isAttacking: false, isBlocking: false, attackTimer: 0 },
-            enemy: { hp: 100, isAttacking: false, isBlocking: false, attackTimer: 0 },
+            player: { hp: 100, stamina: 100, isAttacking: false, combo: 0, isBlocking: false, isStunned: false, stunTimer: 0, attackTimer: 0, dashTimer: 0, isMoving: false },
+            enemy: { hp: 100, stamina: 100, isAttacking: false, combo: 0, isBlocking: false, isStunned: false, stunTimer: 0, attackTimer: 0, dashTimer: 0, isMoving: false },
             input: { forward: 0, backward: 0, left: 0, right: 0 }
         };
 
-        camera.position.set(0, 5, 12);
+        camera.position.set(0, 5, 11);
 
-        // --- УПРАВЛЕНИЕ ---
+        // --- ОБРАБОТКА СИСТЕМЫ УПРАВЛЕНИЯ ---
         const keys = { "btn-up": 'forward', "btn-down": 'backward', "btn-left": 'left', "btn-right": 'right' };
-        
         Object.keys(keys).forEach(id => {
             const btn = document.getElementById(id);
             btn.addEventListener('touchstart', (e) => { e.preventDefault(); state.input[keys[id]] = 1; });
@@ -140,130 +169,234 @@
         document.getElementById('btn-attack').addEventListener('touchstart', (e) => { e.preventDefault(); triggerAttack(state.player); });
         document.getElementById('btn-attack').addEventListener('mousedown', () => triggerAttack(state.player));
 
+        document.getElementById('btn-dash').addEventListener('touchstart', (e) => { e.preventDefault(); triggerDash(state.player, player); });
+        document.getElementById('btn-dash').addEventListener('mousedown', () => triggerDash(state.player, player));
+
         const blockBtn = document.getElementById('btn-block');
-        blockBtn.addEventListener('touchstart', (e) => { e.preventDefault(); state.player.isBlocking = true; });
+        blockBtn.addEventListener('touchstart', (e) => { e.preventDefault(); if(!state.player.isStunned) state.player.isBlocking = true; });
         blockBtn.addEventListener('touchend', () => state.player.isBlocking = false);
-        blockBtn.addEventListener('mousedown', () => state.player.isBlocking = true);
+        blockBtn.addEventListener('mousedown', () => { if(!state.player.isStunned) state.player.isBlocking = true; });
         blockBtn.addEventListener('mouseup', () => state.player.isBlocking = false);
 
+        // Клавиатура ПК
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'w' || e.key === 'ArrowUp') state.input.forward = 1;
-            if (e.key === 's' || e.key === 'ArrowDown') state.input.backward = 1;
-            if (e.key === 'a' || e.key === 'ArrowLeft') state.input.left = 1;
-            if (e.key === 'd' || e.key === 'ArrowRight') state.input.right = 1;
+            if (e.key === 'w') state.input.forward = 1;
+            if (e.key === 's') state.input.backward = 1;
+            if (e.key === 'a') state.input.left = 1;
+            if (e.key === 'd') state.input.right = 1;
             if (e.key === ' ') triggerAttack(state.player);
-            if (e.key === 'f') state.player.isBlocking = true;
+            if (e.key === 'q') triggerDash(state.player, player);
+            if (e.key === 'f' && !state.player.isStunned) state.player.isBlocking = true;
         });
         window.addEventListener('keyup', (e) => {
-            if (e.key === 'w' || e.key === 'ArrowUp') state.input.forward = 0;
-            if (e.key === 's' || e.key === 'ArrowDown') state.input.backward = 0;
-            if (e.key === 'a' || e.key === 'ArrowLeft') state.input.left = 0;
-            if (e.key === 'd' || e.key === 'ArrowRight') state.input.right = 0;
+            if (e.key === 'w') state.input.forward = 0;
+            if (e.key === 's') state.input.backward = 0;
+            if (e.key === 'a') state.input.left = 0;
+            if (e.key === 'd') state.input.right = 0;
             if (e.key === 'f') state.player.isBlocking = false;
         });
 
+        // Срабатывание атаки (Комбо-механика)
         function triggerAttack(charState) {
-            if (!charState.isAttacking && !charState.isBlocking) {
-                charState.isAttacking = true;
-                charState.attackTimer = 0;
-            }
+            if (charState.isStunned || charState.isBlocking || charState.isAttacking || charState.stamina < 15) return;
+            
+            charState.isAttacking = true;
+            charState.attackTimer = 0;
+            charState.stamina -= 15;
         }
 
-        // --- ИГРОВОЙ ЦИКЛ ---
+        // Срабатывание рывка (Dash)
+        function triggerDash(charState, charObj) {
+            if (charState.isStunned || charState.dashTimer > 0 || charState.stamina < 25) return;
+            charState.dashTimer = 0.25; // Длительность рывка
+            charState.stamina -= 25;
+        }
+
+        // --- ДВИЖОК ИГРЫ (ОБНОВЛЕНИЕ КАДРОВ) ---
         const clock = new THREE.Clock();
 
         function animate() {
             requestAnimationFrame(animate);
             const dt = clock.getDelta();
+            const time = clock.getElapsedTime();
 
             if (state.player.hp <= 0 || state.enemy.hp <= 0) {
-                document.getElementById('ui-overlay').innerHTML = "ИГРА ОКОНЧЕНА";
+                document.getElementById('ui-overlay').innerHTML = "РАУНД ОКОНЧЕН";
                 return;
             }
 
+            // Восстановление стамины
+            if (!state.player.isBlocking && !state.player.isStunned) state.player.stamina = Math.min(100, state.player.stamina + 25 * dt);
+            if (!state.enemy.isBlocking && !state.enemy.isStunned) state.enemy.stamina = Math.min(100, state.enemy.stamina + 25 * dt);
+
+            // Обработка Оглушения (Стана)
+            handleStun(state.player, player, 'stun-alert', dt);
+            handleStun(state.enemy, enemy, null, dt);
+
             // Движение игрока
-            const speed = 4;
-            const moveZ = (state.input.backward - state.input.forward) * speed * dt;
-            const moveX = (state.input.right - state.input.left) * speed * dt;
-            player.position.z += moveZ;
-            player.position.x += moveX;
+            let moveSpeed = 4.5;
+            if (state.player.dashTimer > 0) { moveSpeed = 16; state.player.dashTimer -= dt; }
+
+            const moveZ = (state.input.backward - state.input.forward) * moveSpeed * dt;
+            const moveX = (state.input.right - state.input.left) * moveSpeed * dt;
+            
+            if (!state.player.isStunned && !state.player.isBlocking) {
+                player.position.z += moveZ;
+                player.position.x += moveX;
+                state.player.isMoving = (moveZ !== 0 || moveX !== 0);
+            } else {
+                state.player.isMoving = false;
+            }
 
             player.lookAt(enemy.position.x, player.position.y, enemy.position.z);
             enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
 
-            // Бот ИИ
+            // ПРОДВИНУТЫЙ ИИ БОТА
             const dist = player.position.distanceTo(enemy.position);
-            if (dist > 2.2) {
-                const dir = new THREE.Vector3().subVectors(player.position, enemy.position).normalize();
-                enemy.position.addScaledVector(dir, 2.5 * dt);
-                state.enemy.isBlocking = false;
-            } else {
-                if (Math.random() < 0.02) triggerAttack(state.enemy);
-                if (Math.random() < 0.01) state.enemy.isBlocking = !state.enemy.isBlocking;
+            let botSpeed = 3.2;
+            if (state.enemy.dashTimer > 0) { botSpeed = 14; state.enemy.dashTimer -= dt; }
+
+            if (!state.enemy.isStunned) {
+                if (dist > 2.2) {
+                    state.enemy.isMoving = true;
+                    state.enemy.isBlocking = false;
+                    const dir = new THREE.Vector3().subVectors(player.position, enemy.position).normalize();
+                    enemy.position.addScaledVector(dir, botSpeed * dt);
+                    // Шанс бота сделать рывок к игроку
+                    if (dist > 5 && Math.random() < 0.01) triggerDash(state.enemy, enemy);
+                } else {
+                    state.enemy.isMoving = false;
+                    if (Math.random() < 0.03) triggerAttack(state.enemy);
+                    if (Math.random() < 0.02) state.enemy.isBlocking = !state.enemy.isBlocking;
+                }
             }
 
-            // Боёвка
-            handleCombatAnimation(state.player, player, state.enemy, enemy, dt);
-            handleCombatAnimation(state.enemy, enemy, state.player, player, dt);
+            // Анимации конечностей и боя
+            animateLimbs(player, state.player, time);
+            animateLimbs(enemy, state.enemy, time);
 
-            // Камера
+            handleCombat(state.player, player, state.enemy, enemy, dt);
+            handleCombat(state.enemy, enemy, state.player, player, dt);
+
+            // Следование камеры
             camera.position.x = THREE.MathUtils.lerp(camera.position.x, player.position.x, 0.1);
-            camera.position.z = THREE.MathUtils.lerp(camera.position.z, player.position.z + 7, 0.1);
-            camera.lookAt(player.position.x, player.position.y + 1, player.position.z - 2);
+            camera.position.z = THREE.MathUtils.lerp(camera.position.z, player.position.z + 6, 0.1);
+            camera.lookAt(player.position.x, player.position.y + 1, player.position.z - 1);
 
+            updateUI();
             renderer.render(scene, camera);
         }
 
-        function handleCombatAnimation(attackerState, attackerObj, defenderState, defenderObj, dt) {
-            const saber = attackerObj.userData.saber;
+        // Анимация бега и стойки
+        function animateLimbs(obj, charState, time) {
+            const p = obj.userData;
+            if (charState.isStunned) return;
 
-            if (attackerState.isBlocking) {
-                saber.position.set(0, 1.2, 0.5);
-                saber.rotation.set(0, 0, Math.PI / 2);
-            } else if (attackerState.isAttacking) {
-                attackerState.attackTimer += dt * 5;
-                if (attackerState.attackTimer < Math.PI) {
-                    saber.rotation.x = -Math.sin(attackerState.attackTimer) * 1.5;
-                    saber.position.z = 0.3 + Math.sin(attackerState.attackTimer) * 0.5;
-                } else {
-                    attackerState.isAttacking = false;
-                    saber.rotation.set(0,0,0);
-                    saber.position.set(0.6, 1, 0.3);
-
-                    const dist = attackerObj.position.distanceTo(defenderObj.position);
-                    if (dist < 2.5) {
-                        if (defenderState.isBlocking) {
-                            createClashEffect(attackerObj.position, defenderObj.position);
-                        } else {
-                            defenderState.hp -= 15;
-                            if(defenderState.hp < 0) defenderState.hp = 0;
-                            updateUI();
-                        }
-                    }
+            if (charState.isMoving) {
+                // Махи ногами и руками при ходьбе
+                p.rLegPivot.rotation.x = Math.sin(time * 12) * 0.6;
+                p.lLegPivot.rotation.x = -Math.sin(time * 12) * 0.6;
+                p.lArmPivot.rotation.x = Math.sin(time * 12) * 0.4;
+                if (!charState.isAttacking && !charState.isBlocking) {
+                    p.rArmPivot.rotation.x = -Math.PI / 4 + -Math.sin(time * 12) * 0.3;
                 }
             } else {
-                saber.position.set(0.6, 1, 0.3);
-                saber.rotation.set(0, 0, 0);
+                // Стойка покоя
+                p.rLegPivot.rotation.x = 0;
+                p.lLegPivot.rotation.x = 0;
+                p.lArmPivot.rotation.x = 0;
+                if (!charState.isAttacking && !charState.isBlocking) {
+                    p.rArmPivot.rotation.set(-Math.PI / 4, 0, 0); // Боевая стойка с мечом вверх
+                }
+            }
+        }
+
+        function handleStun(charState, charObj, alertId, dt) {
+            if (charState.isStunned) {
+                charState.stunTimer -= dt;
+                charObj.userData.head.rotation.x = 0.5; // Опускает голову
+                charObj.userData.rArmPivot.rotation.set(0, 0, -0.2); // Опускает руку с мечом
+                if (alertId) document.getElementById(alertId).style.display = 'block';
+                if (charState.stunTimer <= 0) {
+                    charState.isStunned = false;
+                    charObj.userData.head.rotation.x = 0;
+                    if (alertId) document.getElementById(alertId).style.display = 'none';
+                }
+            }
+        }
+
+        // Логика Атак комбо и Пробития блока
+        function handleCombat(attState, attObj, defState, defObj, dt) {
+            const p = attObj.userData;
+            if (attState.isStunned) return;
+
+            if (attState.isBlocking) {
+                p.rArmPivot.rotation.set(-Math.PI / 2, 0, Math.PI / 2.5); // Защитная позиция меча перед собой
+                return;
+            }
+
+            if (attState.isAttacking) {
+                attState.attackTimer += dt * 7; // Скорость взмаха
+                
+                // Тайминги анимации в зависимости от шага комбо
+                if (attState.attackTimer < Math.PI) {
+                    if (attState.combo === 0) { // Справа-налево
+                        p.rArmPivot.rotation.y = Math.sin(attState.attackTimer) * 1.5;
+                        p.rArmPivot.rotation.x = -Math.PI/3;
+                    } else if (attState.combo === 1) { // Слева-направо
+                        p.rArmPivot.rotation.y = -Math.sin(attState.attackTimer) * 1.5;
+                        p.rArmPivot.rotation.x = -Math.PI/3;
+                    } else { // Сверху-вниз (Тяжелый)
+                        p.rArmPivot.rotation.x = -Math.PI / 2 + Math.sin(attState.attackTimer) * 2;
+                        p.rArmPivot.rotation.y = 0;
+                    }
+                } else {
+                    // Конец удара: проверяем урон
+                    attState.isAttacking = false;
+                    p.rArmPivot.rotation.set(-Math.PI / 4, 0, 0);
+
+                    const dist = attObj.position.distanceTo(defObj.position);
+                    if (dist < 2.3) {
+                        let damage = attState.combo === 2 ? 24 : 12; // Тяжелый удар бьет больнее
+
+                        if (defState.isBlocking) {
+                            // Блок забирает выносливость защищающегося
+                            defState.stamina -= attState.combo === 2 ? 45 : 25;
+                            createClashEffect(attObj.position, defObj.position);
+                            
+                            if (defState.stamina <= 0) {
+                                defState.stamina = 0;
+                                defState.isBlocking = false;
+                                defState.isStunned = true;
+                                defState.stunTimer = 1.6; // Оглушен из-за пробития блока!
+                            }
+                        } else {
+                            // Обычное попадание по телу
+                            defState.hp = Math.max(0, defState.hp - damage);
+                        }
+                    }
+
+                    // Переход на следующий удар комбо серии
+                    attState.combo = (attState.combo + 1) % 3;
+                }
             }
         }
 
         function createClashEffect(p1, p2) {
-            const midPoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
-            midPoint.y = 1.3;
-            const flash = new THREE.PointLight(0xffffff, 3, 3);
-            flash.position.copy(midPoint);
-            scene.add(flash);
-            setTimeout(() => scene.remove(flash), 100);
+            const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5); mid.y = 1.2;
+            const flash = new THREE.PointLight(0xffcc00, 3, 3); flash.position.copy(mid);
+            scene.add(flash); setTimeout(() => scene.remove(flash), 120);
         }
 
         function updateUI() {
             document.getElementById('player-hp').style.width = state.player.hp + '%';
             document.getElementById('enemy-hp').style.width = state.enemy.hp + '%';
+            document.getElementById('player-stamina').style.width = state.player.stamina + '%';
+            document.getElementById('enemy-stamina').style.width = state.enemy.stamina + '%';
         }
 
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
