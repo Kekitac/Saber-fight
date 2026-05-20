@@ -263,8 +263,8 @@
             }
 
             // Проверка конца боя
-            if (state.player.hp <= 0) { endGame("БОТ"); return; }
-            if (state.enemy.hp <= 0) { endGame("ВЫ (КЕНТ)"); return; }
+            if (state.player.hp <= 0) { endGame("Bot"); return; }
+            if (state.enemy.hp <= 0) { endGame("You"); return; }
 
             // Регенерация стамины
             if (!state.player.isBlocking && !state.player.isStunned) state.player.stamina = Math.min(100, state.player.stamina + 22 * dt);
