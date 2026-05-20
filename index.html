@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Saber Showdown Advanced</title>
+    <title>Saber Showdown Advanced 2.0</title>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #050505; user-select: none; -webkit-user-select: none; }
         canvas { display: block; width: 100vw; height: 100vh; }
@@ -27,6 +27,11 @@
         .btn { background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255,255,255,0.4); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: bold; -webkit-tap-highlight-color: transparent; }
         .btn:active { background: rgba(255, 255, 255, 0.3); transform: scale(0.95); }
         .action-btn { width: 85px; height: 50px; border-radius: 12px; font-size: 13px; }
+        
+        /* Группа кнопок камеры */
+        .cam-btns-group { display: flex; gap: 10px; margin-bottom: 10px; pointer-events: auto; justify-content: center; }
+        .cam-btn { width: 35px; height: 35px; font-size: 14px; border-radius: 8px; border-color: rgba(0, 200, 255, 0.6); }
+
         #btn-attack { background: rgba(255, 0, 85, 0.25); border-color: #ff0055; }
         #btn-block { background: rgba(0, 200, 255, 0.25); border-color: #00ccff; }
         #btn-dash { background: rgba(255, 153, 0, 0.25); border-color: #ff9900; }
@@ -58,6 +63,10 @@
             <div></div><div class="btn" id="btn-down">▼</div><div></div>
         </div>
         <div class="actions">
+            <div class="cam-btns-group">
+                <div class="btn cam-btn" id="cam-l">◀</div>
+                <div class="btn cam-btn" id="cam-r">▶</div>
+            </div>
             <div class="btn action-btn" id="btn-dash">РЫВОК</div>
             <div class="btn action-btn" id="btn-attack">УДАР</div>
             <div class="btn action-btn" id="btn-block">БЛОК</div>
@@ -67,29 +76,56 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x05050a);
-        scene.fog = new THREE.FogExp2(0x05050a, 0.03);
+        scene.background = new THREE.Color(0x0a0a1a);
+        scene.fog = new THREE.FogExp2(0x0a0a1a, 0.025);
 
+        // --- УПРАВЛЕНИЕ КАМЕРОЙ ЧЕРЕЗ ПИВОТ (Pivot) ---
         const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        // Создаем группу, которая будет центром вращения камеры (пивот)
+        const cameraPivot = new THREE.Group();
+        scene.add(cameraPivot);
+        cameraPivot.add(camera);
+        // Устанавливаем камеру на некотором расстоянии от пивота
+        camera.position.set(0, 5, 12);
+        // Заставляем камеру всегда смотреть на центр пивота
+        camera.lookAt(new THREE.Vector3(0, 1.2, 0));
+
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Более мягкие тени
         document.body.appendChild(renderer.domElement);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.25));
-        const dirLight = new THREE.DirectionalLight(0xaaafff, 0.8);
-        dirLight.position.set(15, 25, 15);
-        dirLight.castShadow = true;
-        scene.add(dirLight);
+        // --- ОБНОВЛЕННОЕ ОСВЕЩЕНИЕ ---
+        scene.add(new THREE.AmbientLight(0xffffff, 0.45)); // Увеличили фоновый свет
+        
+        // Мощный передний свет
+        const mainLight = new THREE.DirectionalLight(0xaaafff, 1.0);
+        mainLight.position.set(20, 30, 20);
+        mainLight.castShadow = true;
+        // Настройка теней
+        mainLight.shadow.mapSize.width = 1024;
+        mainLight.shadow.mapSize.height = 1024;
+        mainLight.shadow.camera.left = -30; mainLight.shadow.camera.right = 30;
+        mainLight.shadow.camera.top = 30; mainLight.shadow.camera.bottom = -30;
+        scene.add(mainLight);
 
-        // Пол
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), new THREE.MeshStandardMaterial({ color: 0x111118, roughness: 0.7 }));
+        // Мощный задний свет (Бэклайт)
+        const backLight = new THREE.DirectionalLight(0xfffaaa, 0.6);
+        backLight.position.set(-20, 30, -20);
+        backLight.castShadow = false;
+        scene.add(backLight);
+
+        // Пол с отражениями
+        const floorGeo = new THREE.PlaneGeometry(80, 80);
+        const floorMat = new THREE.MeshStandardMaterial({ color: 0x111118, roughness: 0.7, metalness: 0.1 });
+        const floor = new THREE.Mesh(floorGeo, floorMat);
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         scene.add(floor);
         scene.add(new THREE.GridHelper(80, 40, 0x00ffcc, 0x1a1a2e));
 
-        // --- СОЗДАНИЕ РОБЛОКС-ПЕРСОНАЖА ---
+        // --- ОБНОВЛЕННОЕ КРЕПЛЕНИЕ МЕЧА В РУКЕ ---
         function createRobloxCharacter(bodyColor, saberColor) {
             const group = new THREE.Group();
             const mat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.6 });
@@ -98,16 +134,16 @@
             // Торс
             const torso = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.4), mat);
             torso.position.y = 1.1;
-            torso.castShadow = true;
+            torso.castShadow = torso.receiveShadow = true;
             group.add(torso);
 
             // Голова
             const head = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.45, 0.45), skinMat);
             head.position.y = 1.85;
-            head.castShadow = true;
+            head.castShadow = head.receiveShadow = true;
             group.add(head);
 
-            // Руки (Плечевые шарниры для анимации)
+            // Шарниры конечностей
             const rArmPivot = new THREE.Group(); rArmPivot.position.set(0.55, 1.5, 0);
             const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), mat); rArm.position.y = -0.4; rArm.castShadow = true;
             rArmPivot.add(rArm); group.add(rArmPivot);
@@ -116,27 +152,45 @@
             const lArm = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.9, 0.25), mat); lArm.position.y = -0.4; lArm.castShadow = true;
             lArmPivot.add(lArm); group.add(lArmPivot);
 
-            // Ноги
             const rLegPivot = new THREE.Group(); rLegPivot.position.set(0.2, 0.6, 0);
             const rLeg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.28), mat); rLeg.position.y = -0.3; rLeg.castShadow = true;
             rLegPivot.add(rLeg); group.add(rLegPivot);
 
             const lLegPivot = new THREE.Group(); lLegPivot.position.set(-0.2, 0.6, 0);
             const lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.7, 0.28), mat); lLeg.position.y = -0.3; lLeg.castShadow = true;
-            lLegPivot.add(lLeg); group.add(lLegPivot);
+            lLegPivot.add(lLegPivot.add(lLeg)); group.add(lLegPivot);
 
-            // Меч в правой руке
-            const saber = new THREE.Group();
-            saber.position.set(0, -0.8, 0.1);
-            const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 1.4, 8), new THREE.MeshBasicMaterial({ color: saberColor }));
-            blade.position.y = 0.6;
-            saber.add(blade);
-            const light = new THREE.PointLight(saberColor, 1.2, 5);
-            light.position.y = 0.8;
-            saber.add(light);
-            rArmPivot.add(saber);
+            // --- МЕЧ В РУКЕ (Правильное крепление) ---
+            const saberGroup = new THREE.Group();
+            saberGroup.position.set(0, -0.85, 0); // Позиция именно в руке (внизу предплечья)
 
-            group.userData = { head, rArmPivot, lArmPivot, rLegPivot, lLegPivot, saber };
+            // Рукоятка меча
+            const handleGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.35, 8);
+            const handleMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.9 });
+            const handle = new THREE.Mesh(handleGeo, handleMat);
+            handle.position.y = -0.15;
+            handle.castShadow = true;
+            saberGroup.add(handle);
+
+            // Неоновое лезвие
+            const bladeGeo = new THREE.CylinderGeometry(0.035, 0.035, 1.4, 8);
+            const bladeMat = new THREE.MeshBasicMaterial({ color: saberColor });
+            const blade = new THREE.Mesh(bladeGeo, bladeMat);
+            blade.position.y = 0.7; // Смещение относительно рукоятки
+            saberGroup.add(blade);
+
+            // Динамический свет от лезвия (теперь мечи отбрасывают тени!)
+            const light = new THREE.PointLight(saberColor, 1.2, 6);
+            light.position.y = 0.7;
+            light.castShadow = true;
+            light.shadow.mapSize.width = 512;
+            light.shadow.mapSize.height = 512;
+            light.shadow.camera.near = 0.1; light.shadow.camera.far = 10;
+            saberGroup.add(light);
+
+            rArmPivot.add(saberGroup); // Привязываем всю группу меча к правой руке
+
+            group.userData = { head, rArmPivot, lArmPivot, rLegPivot, lLegPivot, saberGroup, blade, light };
             return group;
         }
 
@@ -151,10 +205,9 @@
         const state = {
             player: { hp: 100, stamina: 100, isAttacking: false, combo: 0, isBlocking: false, isStunned: false, stunTimer: 0, attackTimer: 0, dashTimer: 0, isMoving: false },
             enemy: { hp: 100, stamina: 100, isAttacking: false, combo: 0, isBlocking: false, isStunned: false, stunTimer: 0, attackTimer: 0, dashTimer: 0, isMoving: false },
-            input: { forward: 0, backward: 0, left: 0, right: 0 }
+            input: { forward: 0, backward: 0, left: 0, right: 0 },
+            camera: { angleTargetY: 0 } // Целевой угол поворота камеры
         };
-
-        camera.position.set(0, 5, 11);
 
         // --- ОБРАБОТКА СИСТЕМЫ УПРАВЛЕНИЯ ---
         const keys = { "btn-up": 'forward', "btn-down": 'backward', "btn-left": 'left', "btn-right": 'right' };
@@ -166,9 +219,22 @@
             btn.addEventListener('mouseup', () => state.input[keys[id]] = 0);
         });
 
+        // Сенсорные кнопки управления Камерой
+        document.getElementById('cam-l').addEventListener('touchstart', (e) => { e.preventDefault(); camRotationMode = -1; });
+        document.getElementById('cam-l').addEventListener('touchend', () => camRotationMode = 0);
+        document.getElementById('cam-l').addEventListener('mousedown', () => camRotationMode = -1);
+        document.getElementById('cam-l').addEventListener('mouseup', () => camRotationMode = 0);
+
+        document.getElementById('cam-r').addEventListener('touchstart', (e) => { e.preventDefault(); camRotationMode = 1; });
+        document.getElementById('cam-r').addEventListener('touchend', () => camRotationMode = 0);
+        document.getElementById('cam-r').addEventListener('mousedown', () => camRotationMode = 1);
+        document.getElementById('cam-r').addEventListener('mouseup', () => camRotationMode = 0);
+
+        let camRotationMode = 0; // -1: влево, 1: вправо
+
+        // Боевые кнопки
         document.getElementById('btn-attack').addEventListener('touchstart', (e) => { e.preventDefault(); triggerAttack(state.player); });
         document.getElementById('btn-attack').addEventListener('mousedown', () => triggerAttack(state.player));
-
         document.getElementById('btn-dash').addEventListener('touchstart', (e) => { e.preventDefault(); triggerDash(state.player, player); });
         document.getElementById('btn-dash').addEventListener('mousedown', () => triggerDash(state.player, player));
 
@@ -178,7 +244,7 @@
         blockBtn.addEventListener('mousedown', () => { if(!state.player.isStunned) state.player.isBlocking = true; });
         blockBtn.addEventListener('mouseup', () => state.player.isBlocking = false);
 
-        // Клавиатура ПК
+        // --- Клавиатура ПК ---
         window.addEventListener('keydown', (e) => {
             if (e.key === 'w') state.input.forward = 1;
             if (e.key === 's') state.input.backward = 1;
@@ -187,6 +253,8 @@
             if (e.key === ' ') triggerAttack(state.player);
             if (e.key === 'q') triggerDash(state.player, player);
             if (e.key === 'f' && !state.player.isStunned) state.player.isBlocking = true;
+            if (e.key === 'ArrowLeft') camRotationMode = -1;
+            if (e.key === 'ArrowRight') camRotationMode = 1;
         });
         window.addEventListener('keyup', (e) => {
             if (e.key === 'w') state.input.forward = 0;
@@ -194,22 +262,19 @@
             if (e.key === 'a') state.input.left = 0;
             if (e.key === 'd') state.input.right = 0;
             if (e.key === 'f') state.player.isBlocking = false;
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') camRotationMode = 0;
         });
 
         // Срабатывание атаки (Комбо-механика)
         function triggerAttack(charState) {
             if (charState.isStunned || charState.isBlocking || charState.isAttacking || charState.stamina < 15) return;
-            
-            charState.isAttacking = true;
-            charState.attackTimer = 0;
-            charState.stamina -= 15;
+            charState.isAttacking = true; charState.attackTimer = 0; charState.stamina -= 15;
         }
 
         // Срабатывание рывка (Dash)
         function triggerDash(charState, charObj) {
             if (charState.isStunned || charState.dashTimer > 0 || charState.stamina < 25) return;
-            charState.dashTimer = 0.25; // Длительность рывка
-            charState.stamina -= 25;
+            charState.dashTimer = 0.25; charState.stamina -= 25;
         }
 
         // --- ДВИЖОК ИГРЫ (ОБНОВЛЕНИЕ КАДРОВ) ---
@@ -221,8 +286,7 @@
             const time = clock.getElapsedTime();
 
             if (state.player.hp <= 0 || state.enemy.hp <= 0) {
-                document.getElementById('ui-overlay').innerHTML = "РАУНД ОКОНЧЕН";
-                return;
+                document.getElementById('ui-overlay').innerHTML = "РАУНД ОКОНЧЕН"; return;
             }
 
             // Восстановление стамины
@@ -241,15 +305,27 @@
             const moveX = (state.input.right - state.input.left) * moveSpeed * dt;
             
             if (!state.player.isStunned && !state.player.isBlocking) {
-                player.position.z += moveZ;
-                player.position.x += moveX;
+                player.position.z += moveZ; player.position.x += moveX;
                 state.player.isMoving = (moveZ !== 0 || moveX !== 0);
             } else {
                 state.player.isMoving = false;
             }
 
+            // Бойцы всегда смотрят друг на друга (для боевой механики)
             player.lookAt(enemy.position.x, player.position.y, enemy.position.z);
             enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
+
+            // --- ОБНОВЛЕННАЯ ЛОГИКА КАМЕРЫ ЧЕРЕЗ ПИВОТ ---
+            // Целевой угол поворота камеры зависит от кнопок ( ArrowLeft/Right )
+            if (camRotationMode !== 0) {
+                state.camera.angleTargetY += camRotationMode * 1.8 * dt; // Скорость вращения
+            }
+            
+            // Плавно интерполируем текущий угол камеры к целевому
+            cameraPivot.rotation.y = THREE.MathUtils.lerp(cameraPivot.rotation.y, state.camera.angleTargetY, 0.2);
+
+            // Перемещаем пивот камеры к центру игрока (LERP для плавного следования)
+            cameraPivot.position.lerp(new THREE.Vector3(player.position.x, player.position.y, player.position.z), 0.12);
 
             // ПРОДВИНУТЫЙ ИИ БОТА
             const dist = player.position.distanceTo(enemy.position);
@@ -258,11 +334,9 @@
 
             if (!state.enemy.isStunned) {
                 if (dist > 2.2) {
-                    state.enemy.isMoving = true;
-                    state.enemy.isBlocking = false;
+                    state.enemy.isMoving = true; state.enemy.isBlocking = false;
                     const dir = new THREE.Vector3().subVectors(player.position, enemy.position).normalize();
                     enemy.position.addScaledVector(dir, botSpeed * dt);
-                    // Шанс бота сделать рывок к игроку
                     if (dist > 5 && Math.random() < 0.01) triggerDash(state.enemy, enemy);
                 } else {
                     state.enemy.isMoving = false;
@@ -278,22 +352,15 @@
             handleCombat(state.player, player, state.enemy, enemy, dt);
             handleCombat(state.enemy, enemy, state.player, player, dt);
 
-            // Следование камеры
-            camera.position.x = THREE.MathUtils.lerp(camera.position.x, player.position.x, 0.1);
-            camera.position.z = THREE.MathUtils.lerp(camera.position.z, player.position.z + 6, 0.1);
-            camera.lookAt(player.position.x, player.position.y + 1, player.position.z - 1);
-
             updateUI();
             renderer.render(scene, camera);
         }
 
         // Анимация бега и стойки
         function animateLimbs(obj, charState, time) {
-            const p = obj.userData;
-            if (charState.isStunned) return;
+            const p = obj.userData; if (charState.isStunned) return;
 
             if (charState.isMoving) {
-                // Махи ногами и руками при ходьбе
                 p.rLegPivot.rotation.x = Math.sin(time * 12) * 0.6;
                 p.lLegPivot.rotation.x = -Math.sin(time * 12) * 0.6;
                 p.lArmPivot.rotation.x = Math.sin(time * 12) * 0.4;
@@ -301,10 +368,7 @@
                     p.rArmPivot.rotation.x = -Math.PI / 4 + -Math.sin(time * 12) * 0.3;
                 }
             } else {
-                // Стойка покоя
-                p.rLegPivot.rotation.x = 0;
-                p.lLegPivot.rotation.x = 0;
-                p.lArmPivot.rotation.x = 0;
+                p.rLegPivot.rotation.x = 0; p.lLegPivot.rotation.x = 0; p.lArmPivot.rotation.x = 0;
                 if (!charState.isAttacking && !charState.isBlocking) {
                     p.rArmPivot.rotation.set(-Math.PI / 4, 0, 0); // Боевая стойка с мечом вверх
                 }
@@ -318,8 +382,7 @@
                 charObj.userData.rArmPivot.rotation.set(0, 0, -0.2); // Опускает руку с мечом
                 if (alertId) document.getElementById(alertId).style.display = 'block';
                 if (charState.stunTimer <= 0) {
-                    charState.isStunned = false;
-                    charObj.userData.head.rotation.x = 0;
+                    charState.isStunned = false; charObj.userData.head.rotation.x = 0;
                     if (alertId) document.getElementById(alertId).style.display = 'none';
                 }
             }
@@ -327,8 +390,7 @@
 
         // Логика Атак комбо и Пробития блока
         function handleCombat(attState, attObj, defState, defObj, dt) {
-            const p = attObj.userData;
-            if (attState.isStunned) return;
+            const p = attObj.userData; if (attState.isStunned) return;
 
             if (attState.isBlocking) {
                 p.rArmPivot.rotation.set(-Math.PI / 2, 0, Math.PI / 2.5); // Защитная позиция меча перед собой
@@ -341,19 +403,15 @@
                 // Тайминги анимации в зависимости от шага комбо
                 if (attState.attackTimer < Math.PI) {
                     if (attState.combo === 0) { // Справа-налево
-                        p.rArmPivot.rotation.y = Math.sin(attState.attackTimer) * 1.5;
-                        p.rArmPivot.rotation.x = -Math.PI/3;
+                        p.rArmPivot.rotation.y = Math.sin(attState.attackTimer) * 1.5; p.rArmPivot.rotation.x = -Math.PI/3;
                     } else if (attState.combo === 1) { // Слева-направо
-                        p.rArmPivot.rotation.y = -Math.sin(attState.attackTimer) * 1.5;
-                        p.rArmPivot.rotation.x = -Math.PI/3;
+                        p.rArmPivot.rotation.y = -Math.sin(attState.attackTimer) * 1.5; p.rArmPivot.rotation.x = -Math.PI/3;
                     } else { // Сверху-вниз (Тяжелый)
-                        p.rArmPivot.rotation.x = -Math.PI / 2 + Math.sin(attState.attackTimer) * 2;
-                        p.rArmPivot.rotation.y = 0;
+                        p.rArmPivot.rotation.x = -Math.PI / 2 + Math.sin(attState.attackTimer) * 2; p.rArmPivot.rotation.y = 0;
                     }
                 } else {
                     // Конец удара: проверяем урон
-                    attState.isAttacking = false;
-                    p.rArmPivot.rotation.set(-Math.PI / 4, 0, 0);
+                    attState.isAttacking = false; p.rArmPivot.rotation.set(-Math.PI / 4, 0, 0);
 
                     const dist = attObj.position.distanceTo(defObj.position);
                     if (dist < 2.3) {
@@ -362,12 +420,10 @@
                         if (defState.isBlocking) {
                             // Блок забирает выносливость защищающегося
                             defState.stamina -= attState.combo === 2 ? 45 : 25;
-                            createClashEffect(attObj.position, defObj.position);
+                            createClashEffect(attObj.position, defObj.position, attObj.userData.blade.material.color);
                             
                             if (defState.stamina <= 0) {
-                                defState.stamina = 0;
-                                defState.isBlocking = false;
-                                defState.isStunned = true;
+                                defState.stamina = 0; defState.isBlocking = false; defState.isStunned = true;
                                 defState.stunTimer = 1.6; // Оглушен из-за пробития блока!
                             }
                         } else {
@@ -382,9 +438,9 @@
             }
         }
 
-        function createClashEffect(p1, p2) {
+        function createClashEffect(p1, p2, color) {
             const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5); mid.y = 1.2;
-            const flash = new THREE.PointLight(0xffcc00, 3, 3); flash.position.copy(mid);
+            const flash = new THREE.PointLight(color, 4, 3); flash.position.copy(mid); flash.castShadow = true;
             scene.add(flash); setTimeout(() => scene.remove(flash), 120);
         }
 
@@ -396,8 +452,7 @@
         }
 
         window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
         animate();
