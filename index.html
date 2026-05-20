@@ -70,13 +70,13 @@
     </div>
 
     <div id="ui-overlay">
-        <div>YOU (KENT)
+        <div>YOU
             <div class="bar-container">
                 <div class="hp-bar"><div id="player-hp" class="fill"></div></div>
                 <div class="stamina-bar"><div id="player-stamina" class="fill stamina-fill"></div></div>
             </div>
         </div>
-        <div>ENEMY (BOT)
+        <div>BOT
             <div class="bar-container">
                 <div class="hp-bar"><div id="enemy-hp" class="fill"></div></div>
                 <div class="stamina-bar"><div id="enemy-stamina" class="fill stamina-fill"></div></div>
@@ -191,7 +191,6 @@
             input: { forward: 0, backward: 0, left: 0, right: 0 }
         };
 
-        // Touch input listeners
         const keys = { "btn-up": 'forward', "btn-down": 'backward', "btn-left": 'left', "btn-right": 'right' };
         Object.keys(keys).forEach(id => {
             const btn = document.getElementById(id);
@@ -225,7 +224,6 @@
             charState.dashTimer = 0.2; charState.stamina -= 15;
         }
 
-        // Menu Actions
         function startBotGame() {
             document.getElementById('main-menu').style.display = 'none';
             document.getElementById('ui-overlay').style.display = 'flex';
@@ -287,7 +285,6 @@
             const dt = clock.getDelta();
             const time = clock.getElapsedTime();
 
-            // Menu Viewport Rendering
             if (!isGameRunning) {
                 const targetCamX = player.position.x;
                 const targetCamY = player.position.y + 7.5; 
@@ -307,7 +304,6 @@
             handleStun(state.player, player, 'stun-alert', dt);
             handleStun(state.enemy, enemy, null, dt);
 
-            // Movement logic
             let moveSpeed = 4.5;
             if (state.player.dashTimer > 0) { moveSpeed = 16; state.player.dashTimer -= dt; }
 
@@ -324,7 +320,6 @@
             player.lookAt(enemy.position.x, player.position.y, enemy.position.z);
             enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
 
-            // Fixed Locked Camera Flow
             const targetCamX = player.position.x;
             const targetCamY = player.position.y + 7.5; 
             const targetCamZ = player.position.z + 8.5; 
@@ -332,7 +327,6 @@
             camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.1);
             camera.lookAt(player.position.x, player.position.y + 1, player.position.z);
 
-            // Bot artificial intelligence
             const dist = player.position.distanceTo(enemy.position);
             let botSpeed = 3.2;
             if (state.enemy.dashTimer > 0) { botSpeed = 14; state.enemy.dashTimer -= dt; }
