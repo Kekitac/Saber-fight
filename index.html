@@ -52,7 +52,7 @@
 
     <div id="game-over-screen" class="screen-overlay">
         <div class="menu-title" id="win-text">Somebody won</div>
-        <button class="menu-btn" onclick="restartGame()" style="background:#00cc99; border-color:#008866; box-shadow: 0 5px 15px rgba(0,204,153,0.4);">ИГРАТЬ СНОВА</button>
+        <button class="menu-btn" onclick="restartGame()" style="background:#00cc99; border-color:#008866; box-shadow: 0 5px 15px rgba(0,204,153,0.4);">Play again</button>
     </div>
 
     <div id="ui-overlay">
@@ -70,7 +70,7 @@
         </div>
     </div>
 
-    <div id="stun-alert">💥 Stunnes ! Stamina 0!</div>
+    <div id="stun-alert">💥 Stunned ! Stamina 0!</div>
 
     <div class="controls-container" id="controls">
         <div class="dpad">
@@ -79,9 +79,9 @@
             <div></div><div class="btn" id="btn-down">▼</div><div></div>
         </div>
         <div class="actions">
-            <div class="btn action-btn" id="btn-dash">РЫВОК</div>
-            <div class="btn action-btn" id="btn-attack">УДАР</div>
-            <div class="btn action-btn" id="btn-block">БЛОК</div>
+            <div class="btn action-btn" id="btn-dash">Dash</div>
+            <div class="btn action-btn" id="btn-attack">Hit</div>
+            <div class="btn action-btn" id="btn-block">Block</div>
         </div>
     </div>
 
@@ -239,7 +239,7 @@
 
         function endGame(winnerName) {
             isGameRunning = false;
-            document.getElementById('win-text').innerText = winnerName + " ПОБЕДИЛ!";
+            document.getElementById('win-text').innerText = winnerName + " WON!";
             document.getElementById('game-over-screen').style.display = 'flex';
         }
 
