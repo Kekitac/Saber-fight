@@ -191,7 +191,6 @@
         enemy.position.set(0, 0, -3);
         scene.add(player, enemy);
 
-        // Global smoothed vector for cinematic camera processing
         const smoothedCamDir = new THREE.Vector3(0, 0, 1);
 
         const state = {
@@ -412,7 +411,7 @@
             player.lookAt(enemy.position.x, player.position.y, enemy.position.z);
             enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
 
-            // --- GLITCH-FREE ORBIT LOCK-ON CAMERA SYSTEM ---
+            // --- TRUE SHIFT-LOCK BEHIND-THE-BACK CAMERA SYSTEM ---
             const idealCamDir = new THREE.Vector3().subVectors(player.position, enemy.position);
             idealCamDir.y = 0;
             if (idealCamDir.lengthSq() < 0.01) {
@@ -421,26 +420,33 @@
                 idealCamDir.normalize();
             }
             
-            // Lerping the direction vector prevents instant 180 flips when passing through entities
-            smoothedCamDir.lerp(idealCamDir, 0.07); 
+            // Плавное следование за направлением взгляда без резких разворотов
+            smoothedCamDir.lerp(idealCamDir, 0.08); 
             smoothedCamDir.normalize();
 
-            const camRight = new THREE.Vector3(-smoothedCamDir.z, 0, smoothedCamDir.x);
+            // Константы высоты и дальности, выбранные тобой
+            const backOffset = 7.0;    
+            const shoulderOffset = 0.0; // Полностью центрируем камеру по линии позвоночника
+            const heightOffset = 4.0;   
 
-            // NEW SCALE PARAMETERS REQUESTED BY USER
-            const backOffset = 7.0;    // Fixed distant boundary
-            const shoulderOffset = 0.4; 
-            const heightOffset = 4.0;   // Height scale raised to birds eye standard 4.0
+            const camRight = new THREE.Vector3(-smoothedCamDir.z, 0, smoothedCamDir.x);
 
             const targetCamX = player.position.x + smoothedCamDir.x * backOffset + camRight.x * shoulderOffset;
             const targetCamY = player.position.y + heightOffset;
             const targetCamZ = player.position.z + smoothedCamDir.z * backOffset + camRight.z * shoulderOffset;
 
-            camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.1);
+            camera.position.lerp(new THREE.Vector3(targetCamX, targetCamY, targetCamZ), 0.12);
             
-            // Focus pointing at arena midpoint prevents close range camera collisions
-            const lookTarget = new THREE.Vector3().addVectors(player.position, enemy.position).multiplyScalar(0.5);
-            lookTarget.y += 1.1; 
+            // Фокусируем камеру строго на ТВОЕМ персонаже (Эффект Shift Lock)
+            const lookTarget = new THREE.Vector3().copy(player.position);
+            lookTarget.y += 1.2; // На уровне плеч/головы
+            
+            // Сдвигаем фокус взгляда чуть-чуть вперед к врагу, чтобы твой персонаж стоял ровно, но обзор шел вперед
+            const dirToEnemy = new THREE.Vector3().subVectors(enemy.position, player.position);
+            if (dirToEnemy.lengthSq() > 0.01) {
+                dirToEnemy.normalize();
+                lookTarget.addScaledVector(dirToEnemy, 0.6); 
+            }
             camera.lookAt(lookTarget);
 
             // Bot AI Logic
