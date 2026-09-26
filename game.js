@@ -514,11 +514,9 @@
     reset();
     running = true;
     paused = false;
-    document
-      .querySelectorAll(".screen.active")
-      .forEach((screen) => screen.classList.remove("active"));
+    $(".screen.active")?.classList.remove("active");
+    $("difficulty-menu").classList.remove("active");
     $("hud").style.display = "flex";
-    $("pause-menu").classList.remove("active");
     $("game-over").classList.remove("active");
   }
   function end(win) {
@@ -657,10 +655,7 @@
     };
     $("difficulty-list").append(b);
   }
-  $("play-bot").onclick = () => {
-    $("main-menu").classList.remove("active");
-    $("difficulty-menu").classList.add("active");
-  };
+  $("play-bot").onclick = () => $("difficulty-menu").classList.add("active");
   $("open-customize").onclick = () => {
     $("main-menu").classList.remove("active");
     $("customize-menu").classList.add("active");
