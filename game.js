@@ -26,8 +26,6 @@
     clashUntil = 0;
   const keys = {},
     input = { x: 0, z: 0, block: false };
-  const joy = $("joystick"),
-    stick = $("stick");
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0x06101d);
   scene.fog = new THREE.FogExp2(0x06101d, 0.025);
@@ -187,27 +185,6 @@
   player.position.set(0, 0, 4);
   enemy.position.set(0, 0, -4);
   scene.add(player, enemy);
-  const effectPool = Array.from({ length: 16 }, () => {
-    const mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(0.25, 8, 6),
-      new THREE.MeshBasicMaterial({ transparent: true }),
-    );
-    mesh.visible = false;
-    mesh.userData.until = 0;
-    scene.add(mesh);
-    return mesh;
-  });
-  let nextEffect = 0;
-  const scratch = {
-    forward: new THREE.Vector3(),
-    right: new THREE.Vector3(),
-    move: new THREE.Vector3(),
-    direction: new THREE.Vector3(),
-    knockback: new THREE.Vector3(),
-    head: new THREE.Vector3(),
-    offset: new THREE.Vector3(),
-    midpoint: new THREE.Vector3(),
-  };
   function newState() {
     return {
       hp: 100,
@@ -223,9 +200,8 @@
       invuln: 0,
       dash: 0,
       knock: new THREE.Vector3(),
-      dashDir: new THREE.Vector3(),
       hitFlash: 0,
-      ai: { next: 0, seen: 0, blockRelease: 0 },
+      ai: { next: 0, seen: 0 },
     };
   }
   const P = newState(),
@@ -297,23 +273,19 @@
     }
   }
   function effect(pos, color, size = 0.3) {
-    const m = effectPool[nextEffect++ % effectPool.length];
+    const m = new THREE.Mesh(
+      new THREE.SphereGeometry(size, 8, 6),
+      new THREE.MeshBasicMaterial({ color, transparent: true }),
+    );
     m.position.copy(pos);
-    m.scale.setScalar(size / 0.25);
-    m.material.color.setHex(color);
-    m.visible = true;
-    m.userData.until = performance.now() + 100;
-  }
-  function updateEffects(now) {
-    effectPool.forEach((m) => {
-      if (m.visible && now >= m.userData.until) m.visible = false;
-    });
+    scene.add(m);
+    setTimeout(() => scene.remove(m), 100);
   }
   function saberPoint(obj, key) {
-    const point = obj.userData[key];
-    point.set(0, 0, key === "tip" ? 1.65 : 0.18);
     obj.updateMatrixWorld(true);
-    return obj.userData.blade.localToWorld(point);
+    return obj.userData.blade.localToWorld(
+      new THREE.Vector3(0, 0, key === "tip" ? 1.65 : 0.18),
+    );
   }
   function startAttack(s, kind) {
     if (
@@ -340,10 +312,10 @@
     s.stamina -= 20;
     s.dash = 0.18;
     s.invuln = 0.13;
-    const d = s.dashDir.subVectors(target.position, obj.position);
+    let d = new THREE.Vector3().subVectors(target.position, obj.position);
     d.y = 0;
     if (d.lengthSq() < 0.1) d.set(0, 0, -1);
-    d.normalize();
+    s.dashDir = d.normalize();
     sound("dash");
     effect(obj.position, 0x8cecff, 0.2);
   }
@@ -375,7 +347,7 @@
     def.hp = Math.max(0, def.hp - a.damage);
     def.hitFlash = 0.18;
     def.knock.add(
-      scratch.knockback
+      new THREE.Vector3()
         .subVectors(doo.position, ao.position)
         .setY(0)
         .normalize()
@@ -461,19 +433,13 @@
     const cfg = DIFFICULTIES[difficulty],
       now = performance.now(),
       dist = enemy.position.distanceTo(player.position);
-    if (E.ai.blockRelease && now >= E.ai.blockRelease) {
-      block(E, false);
-      E.ai.blockRelease = 0;
-    }
     if (now < E.ai.next || E.stun > 0) return;
     E.ai.next = now + (cfg.reaction * 600 + Math.random() * 180);
     const playerAttacking = !!P.action;
     if (playerAttacking && dist < 2.7 && Math.random() < cfg.accuracy) {
       if (E.stamina > 20 && Math.random() < 0.42) dash(E, enemy, player);
-      else {
-        block(E, true);
-        E.ai.blockRelease = now + 220;
-      }
+      else block(E, true);
+      setTimeout(() => block(E, false), 220);
       return;
     }
     if (E.stamina < 24) {
@@ -481,7 +447,7 @@
       return;
     }
     if (dist > cfg.spacing + 0.35) {
-      const d = scratch.direction
+      let d = new THREE.Vector3()
         .subVectors(player.position, enemy.position)
         .setY(0)
         .normalize();
@@ -489,7 +455,7 @@
       return;
     }
     if (dist < 1.45 && Math.random() < 0.55) {
-      const d = scratch.direction
+      let d = new THREE.Vector3()
         .subVectors(enemy.position, player.position)
         .setY(0)
         .normalize();
@@ -508,7 +474,7 @@
       b = saberPoint(enemy, "tip");
     if (a.distanceTo(b) < 0.72) {
       clashUntil = now + 180;
-      const mid = scratch.midpoint.copy(a).add(b).multiplyScalar(0.5);
+      const mid = a.add(b).multiplyScalar(0.5);
       effect(mid, 0xffffff, 0.18);
       sound("clash");
       flash("SABERS CLASH!");
@@ -539,10 +505,6 @@
   function reset() {
     Object.assign(P, newState());
     Object.assign(E, newState());
-    input.x = input.z = 0;
-    input.block = false;
-    Object.keys(keys).forEach((key) => delete keys[key]);
-    stick?.style && (stick.style.transform = "");
     player.position.set(0, 0, 4);
     enemy.position.set(0, 0, -4);
     cameraYaw = 0;
@@ -573,25 +535,21 @@
     last = now;
     const time = now / 1000;
     if (running && !paused) {
-      if (P.hp <= 0 || E.hp <= 0) {
-        end(E.hp <= 0);
-        renderer.render(scene, camera);
-        return;
-      }
-      const forward = scratch.forward
-          .set(0, 0, -1)
-          .applyAxisAngle(scratch.offset.set(0, 1, 0), cameraYaw),
-        right = scratch.right
-          .set(1, 0, 0)
-          .applyAxisAngle(scratch.offset.set(0, 1, 0), cameraYaw),
-        keyboardX = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0),
-        keyboardZ = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0),
-        moveX = keyboardX || input.x,
-        moveZ = keyboardZ || input.z,
-        mv = scratch.move
-          .copy(right)
-          .multiplyScalar(moveX)
-          .addScaledVector(forward, moveZ);
+      if (P.hp <= 0) end(false);
+      if (E.hp <= 0) end(true);
+      const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          cameraYaw,
+        ),
+        right = new THREE.Vector3(1, 0, 0).applyAxisAngle(
+          new THREE.Vector3(0, 1, 0),
+          cameraYaw,
+        );
+      input.x = (keys.KeyD ? 1 : 0) - (keys.KeyA ? 1 : 0) || input.x;
+      input.z = (keys.KeyW ? 1 : 0) - (keys.KeyS ? 1 : 0) || input.z;
+      let mv = right
+        .multiplyScalar(input.x)
+        .add(forward.multiplyScalar(input.z));
       if (mv.lengthSq() > 0.02 && P.stun <= 0 && !P.block) {
         mv.normalize();
         player.position.addScaledVector(mv, (P.dash > 0 ? 10 : 4.5) * dt);
@@ -602,16 +560,13 @@
       player.rotation.y = cameraYaw + Math.PI;
       enemy.lookAt(player.position.x, enemy.position.y, player.position.z);
       bot(dt);
-      updateEffects(now);
       handleBladeClash(now);
       updateAction(P, player, E, enemy, dt);
       updateAction(E, enemy, P, player, dt);
       animateFighter(player, P, time);
       animateFighter(enemy, E, time);
-      const head = scratch.head
-          .copy(player.position)
-          .addScaledVector(scratch.offset.set(0, 1, 0), 1.4),
-        off = scratch.offset.set(
+      const head = player.position.clone().add(new THREE.Vector3(0, 1.4, 0)),
+        off = new THREE.Vector3(
           6.4 * Math.sin(cameraYaw) * Math.cos(cameraPitch),
           6.4 * Math.sin(cameraPitch),
           6.4 * Math.cos(cameraYaw) * Math.cos(cameraPitch),
@@ -778,6 +733,8 @@
     }
   });
   addEventListener("pointerup", () => (drag = false));
+  const joy = $("joystick"),
+    stick = $("stick");
   joy.addEventListener("pointerdown", (e) => {
     joy.setPointerCapture(e.pointerId);
     function move(v) {
@@ -790,19 +747,16 @@
     }
     move(e);
     joy.onpointermove = move;
-    const releaseJoystick = () => {
+    joy.onpointerup = () => {
       input.x = input.z = 0;
       stick.style.transform = "";
       joy.onpointermove = null;
     };
-    joy.onpointerup = releaseJoystick;
-    joy.onpointercancel = releaseJoystick;
   });
   document.querySelectorAll("#mobile-actions button").forEach((b) => {
     const a = b.dataset.action;
     b.addEventListener("pointerdown", (e) => {
       e.preventDefault();
-      b.setPointerCapture?.(e.pointerId);
       if (a === "light") light(P);
       if (a === "heavy") startAttack(P, "heavy");
       if (a === "dash") dash(P, player, enemy);
